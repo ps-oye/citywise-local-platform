@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "rawatbhata-one",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-11-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "DEPLOYMENT_ENV": "preview",
+    "SITE_INDEXING_ENABLED": "false",
+    "ANALYTICS_ENABLED": "true"
+  },
+  "env": {
+    "preview": {
+      "vars": {
+        "DEPLOYMENT_ENV": "preview",
+        "SITE_INDEXING_ENABLED": "false",
+        "ANALYTICS_ENABLED": "true"
+      }
+    },
+    "production": {
+      "vars": {
+        "DEPLOYMENT_ENV": "production",
+        "SITE_INDEXING_ENABLED": "false",
+        "ANALYTICS_ENABLED": "true"
+      }
+    }
+  }
+}

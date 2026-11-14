@@ -1,0 +1,1 @@
+Reserved for Supabase Edge Functions if trusted server operations need them. Phase 1 does not deploy or expose a checkout/import/analytics endpoint. Do not allow direct public writes to those records.

@@ -1,0 +1,51 @@
+import {WEEKDAYS,localDateTime} from '../../domain/admin.js';
+import {availabilityLabel} from '../../domain/discovery.js';
+import {merchantPicker} from '../merchant-picker.js';
+import {e,heading,field,select,check,badge,formActions,formValues} from '../ui.js';
+export async function hoursPage(app,id) {
+  if(!id)return merchantPicker(app,'hours','Business hours','Choose a merchant to manage weekly hours, holidays and temporary closures.');
+  const data=await app.repo.hours(id);if(!data)throw new Error('This merchant could not be found.');editor(app,data);
+}
+function editor(app,data) {
+  if(!app.mount(heading('Business hours',data.name,'Schedules, special dates and manual status, all in '+data.timezone+'.',`<a class="button button-secondary" href="#merchants/${e(data.listing_id)}">← Merchant details</a>`)+`<section class="admin-status-card"><strong>Current published status: ${e(availabilityLabel(data.status?.state))}</strong><p>Based on the configured schedule. This is not a guarantee of live availability.${data.override?' A manual '+e(data.override.status)+' override is configured.':''}</p>${data.override?`<p>${e(data.override.reason||'Manual status')} · starts ${e(localDateTime(data.override.starts_at,data.timezone).replace('T',' '))}${data.override.expires_at?' · expires '+e(localDateTime(data.override.expires_at,data.timezone).replace('T',' ')):' · no expiry'}</p>`:''}</section><div class="admin-editor-layout"><section class="admin-card"><form data-schedule><fieldset class="admin-form-section"><legend>Weekly schedule</legend><p class="admin-helper">No shifts means closed on that weekday. Add split shifts for breaks. For overnight or 24-hour opening, select “Ends next day”.</p><div data-weekly>${WEEKDAYS.map(([day,label])=>`<section class="admin-day" data-weekday="${day}"><header class="admin-day-heading"><h3>${label}</h3><button type="button" class="admin-small-button" data-add-shift="${day}">+ Add shift</button></header><div data-day-shifts></div><p class="admin-day-closed">Closed</p></section>`).join('')}</div></fieldset><fieldset class="admin-form-section"><legend>Special dates & holidays</legend><p class="admin-helper">Special dates override that day’s weekly schedule. Past and later exceptions outside this list are retained.</p><div data-special-dates></div><button class="button button-secondary" type="button" data-add-special>+ Add special date</button></fieldset>${formActions('Save schedule')}</form></section><aside class="admin-editor-aside"><section class="admin-card"><p class="eyebrow">When plans change</p><h2>Manual status</h2><form data-override>${select('Choose business status','override-status',[{id:'closed',name:'Temporarily closed'},{id:'open',name:'Manually open'},{id:'schedule',name:'Return to automatic schedule'}],data.override?.status||'closed')}${field('Reason (optional)','override-reason','',{maxlength:240,help:'Keep this useful and free of private customer details.'})}${field('Starts at (optional)','override-start','',{type:'datetime-local',help:'Leave empty to apply immediately.'})}${field('Expires at (optional)','override-end','',{type:'datetime-local',help:'Automatic schedule resumes at expiry. Leave empty until you manually restore it.'})}${check('Allow WhatsApp enquiries while closed','closed-enquiries',data.enquiries_while_closed)}<p class="admin-helper">An active manual override takes priority over every schedule and special date. Times use ${e(data.timezone)}.</p>${formActions('Apply status')}</form></section><section class="admin-card"><h2>Keep the listing visible</h2><p>A temporary closure keeps the business page accessible. Disable or archive a listing from Merchant details when it should leave public discovery.</p></section></aside></div>`))return;
+  const form=app.root.querySelector('[data-schedule]'),manual=app.root.querySelector('[data-override]'),removed=[];let serial=0,scheduleDirty=false,manualDirty=false;
+  const markSchedule=()=>{scheduleDirty=true;app.setDirty(true);};form.addEventListener('input',markSchedule);form.addEventListener('change',markSchedule);
+  const markManual=()=>{manualDirty=true;app.setDirty(true);};manual.addEventListener('input',markManual);manual.addEventListener('change',markManual);
+  function shiftMarkup(shift={},label='Shift') {
+    const key='shift-'+serial++;
+    return `<div class="admin-time-row" data-shift>${field(label+' opens','open-'+key,(shift.opens_at||'09:00').slice(0,5),{type:'time',required:true})}${field(label+' closes','close-'+key,(shift.closes_at||'18:00').slice(0,5),{type:'time',required:true})}${check('Ends next day','next-'+key,shift.ends_next_day)}<button type="button" class="admin-small-button" data-remove-shift aria-label="Remove ${e(label.toLowerCase())}">Remove</button></div>`;
+  }
+  function updateClosed(day) {day.querySelector('.admin-day-closed').hidden=Boolean(day.querySelector('[data-shift]'));}
+  for(const [day,label] of WEEKDAYS){const section=form.querySelector('[data-weekday="'+day+'"]');section.querySelector('[data-day-shifts]').innerHTML=data.weekly.filter(shift=>shift.weekday===day).map(shift=>shiftMarkup(shift,label+' shift')).join('');updateClosed(section);}
+  function addSpecial(item={}) {
+    const holder=form.querySelector('[data-special-dates]');if(holder.children.length>=40){app.toast('Up to 40 special dates can be edited at once.',true);return;}
+    const key='special-'+serial++,wrapper=document.createElement('section');wrapper.className='admin-special';wrapper.dataset.special=item.id||crypto.randomUUID();wrapper.dataset.saved=String(Boolean(item.id));
+    wrapper.innerHTML=`<div class="admin-form-grid">${field('Date','date-'+key,item.on_date||localDateTime(new Date(),data.timezone).slice(0,10),{type:'date',required:true})}${field('Label','label-'+key,item.label||'',{maxlength:200,placeholder:'Holiday or special hours'})}</div>${check('Closed all day','closed-'+key,item.closed!==false)}<div data-special-shifts>${(item.intervals||[]).map(shift=>shiftMarkup(shift,'Special-date shift')).join('')}</div><div class="admin-inline"><button type="button" class="admin-small-button" data-add-special-shift>+ Add shift</button><button type="button" class="admin-small-button" data-remove-special>Remove date</button></div>`;
+    wrapper.dataset.key=key;holder.append(wrapper);
+    function closed(){const isClosed=wrapper.querySelector('[name="closed-'+key+'"]').checked;wrapper.querySelector('[data-special-shifts]').hidden=isClosed;wrapper.querySelectorAll('[data-special-shifts] input').forEach(input=>{input.disabled=isClosed;});wrapper.querySelector('[data-add-special-shift]').hidden=isClosed;}
+    wrapper.querySelector('[name="closed-'+key+'"]').onchange=closed;closed();
+  }
+  data.special.forEach(addSpecial);
+  form.addEventListener('click',event=>{
+    const add=event.target.closest('[data-add-shift]');if(add){const day=add.closest('[data-weekday]'),holder=day.querySelector('[data-day-shifts]');if(holder.children.length>=5){app.toast('Use up to five shifts per day.',true);return;}holder.insertAdjacentHTML('beforeend',shiftMarkup({},day.querySelector('h3').textContent+' shift'));updateClosed(day);markSchedule();}
+    const remove=event.target.closest('[data-remove-shift]');if(remove){const day=remove.closest('[data-weekday]');remove.closest('[data-shift]').remove();if(day)updateClosed(day);markSchedule();}
+    const addSpecialButton=event.target.closest('[data-add-special]');if(addSpecialButton){addSpecial();markSchedule();}
+    const addSpecialShift=event.target.closest('[data-add-special-shift]');if(addSpecialShift){const holder=addSpecialShift.closest('[data-special]').querySelector('[data-special-shifts]');if(holder.children.length>=5){app.toast('Use up to five shifts per date.',true);return;}holder.insertAdjacentHTML('beforeend',shiftMarkup({},'Special-date shift'));markSchedule();}
+    const removeSpecial=event.target.closest('[data-remove-special]');if(removeSpecial){const section=removeSpecial.closest('[data-special]');if(section.dataset.saved==='true')removed.push(section.dataset.special);section.remove();markSchedule();}
+  });
+  function readShift(row){const inputs=row.querySelectorAll('input');return {opens_at:inputs[0].value,closes_at:inputs[1].value,ends_next_day:inputs[2].checked};}
+  form.onsubmit=async event=>{
+    event.preventDefault();if(manualDirty&&!await app.confirm('Save schedule?','Unapplied manual-status form changes will be discarded.','Save schedule'))return;
+    app.run(form.querySelector('[type=submit]'),()=>{
+      const weekly=[...form.querySelectorAll('[data-weekday]')].flatMap(day=>[...day.querySelectorAll('[data-shift]')].map(row=>({...readShift(row),weekday:Number(day.dataset.weekday)})));
+      const special=[...form.querySelectorAll('[data-special]')].map(section=>{const key=section.dataset.key,closed=section.querySelector('[name="closed-'+key+'"]').checked;return {id:section.dataset.special,on_date:section.querySelector('[name="date-'+key+'"]').value,label:section.querySelector('[name="label-'+key+'"]').value.trim(),closed,intervals:closed?[]:[...section.querySelectorAll('[data-shift]')].map(readShift)};});
+      return app.repo.saveHours(data.listing_id,weekly,special,removed,data.revision);
+    },saved=>{app.setDirty(false);editor(app,saved);app.toast('Business schedule saved.');});
+  };
+  manual.elements['override-status'].onchange=()=>{const schedule=manual.elements['override-status'].value==='schedule';for(const name of ['override-reason','override-start','override-end'])manual.elements[name].disabled=schedule;};
+  manual.onsubmit=async event=>{
+    event.preventDefault();const v=formValues(manual),status=v.get('override-status');
+    if(!await app.confirm(status==='schedule'?'Restore automatic hours?':status==='closed'?'Apply temporary closure?':'Manually open this business?',(scheduleDirty?'Unsaved schedule changes will be discarded. ':'')+'The status will update on the public site using '+data.timezone+'.','Apply status'))return;
+    app.run(manual.querySelector('[type=submit]'),()=>app.repo.override(data.listing_id,{status,reason:v.get('override-reason'),starts_local:v.get('override-start'),expires_local:v.get('override-end'),enquiries_while_closed:v.checked('closed-enquiries')},data.revision),saved=>{app.setDirty(false);editor(app,saved);app.toast('Business status updated.');});
+  };
+}

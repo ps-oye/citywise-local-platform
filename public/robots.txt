@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+# Runtime responses add the production sitemap when explicitly enabled.
+# Preview HTML carries noindex metadata and X-Robots-Tag headers.
+# Phase 6 will add the production indexing policy and sitemap.

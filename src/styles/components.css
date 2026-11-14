@@ -1,0 +1,38 @@
+.brand { display: inline-flex; align-items: center; gap: var(--space-3); color: var(--color-ink); font-size: 1.15rem; font-weight: 700; letter-spacing: -.04em; text-decoration: none; }
+.brand-mark { display: grid; place-content: center; position: relative; width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; background: var(--color-primary); color: white; font-size: 1.8rem; line-height: 1; padding-right: .35rem; }
+.brand-mark > span { position: absolute; color: var(--color-accent); font-size: .9rem; right: 5px; bottom: 7px; }
+.text-link { display: inline-flex; align-items: center; gap: var(--space-3); font-size: var(--text-sm); font-weight: 600; text-decoration: none; }
+.text-link:hover { text-decoration: underline; }
+.eyebrow { display: flex; align-items: center; gap: var(--space-2); text-transform: uppercase; letter-spacing: .15em; font-size: .7rem; font-weight: 700; color: var(--color-primary); margin-bottom: var(--space-5); }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-primary); }
+h1 em { color: var(--color-primary); font-family: var(--font-display); font-weight: 400; }
+.location-pill { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: .6rem 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-pill); font-size: .8rem; margin-top: var(--space-3); }
+.pill-divider { height: 12px; border-left: 1px solid var(--color-border); }
+.small-label { display: block; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; margin-bottom: var(--space-3); }
+.connection-card { border-top: 1px solid var(--color-border); padding-top: var(--space-5); }
+.connection-card p { min-height: 3.5em; font-size: var(--text-sm); margin-bottom: var(--space-5); }
+[data-state="error"] { color: var(--color-error); }
+[data-state="connected"] { color: var(--color-primary); }
+.button { display: inline-flex; justify-content: center; align-items: center; gap: var(--space-5); min-height: 48px; padding: .8rem 1.2rem; border: 0; border-radius: var(--radius-sm); font-size: var(--text-sm); font-weight: 600; text-decoration: none; transition: background var(--transition); }
+.button-primary { background: var(--color-primary); color: white; }
+.button-primary:hover { background: var(--color-primary-hover); }
+.note-number { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--color-border); border-radius: 50%; font-size: .65rem; }
+.notice { background: var(--color-soft); border: 1px solid var(--color-border); padding: var(--space-5); border-radius: var(--radius-md); }
+.notice h2 { font-size: 1.25rem; letter-spacing: -.01em; }
+.skip-link { position: fixed; top: -100px; left: 1rem; z-index: 99; padding: var(--space-3); background: white; }
+.skip-link:focus { top: 1rem; }
+.town-art { position: relative; isolation: isolate; min-height: 310px; overflow: hidden; border-radius: 45% 45% var(--radius-lg) var(--radius-lg); background: #e6ede1; }
+.art-sun { position: absolute; width: 70px; height: 70px; background: var(--color-accent); border-radius: 50%; top: 12%; right: 20%; }
+.art-hill { position: absolute; width: 100%; height: 65%; border-radius: 50% 50% 0 0; bottom: 12%; }
+.hill-back { background: #c0d0bd; transform: rotate(-15deg); left: -20%; }
+.hill-front { background: #9fb8a3; transform: rotate(20deg); right: -35%; bottom: 5%; }
+.art-building { position: absolute; bottom: 18%; display: flex; gap: 8px; align-items: start; justify-content: center; padding-top: 24px; border-radius: 8px 8px 0 0; }
+.art-building i { display: block; width: 13px; height: 22px; background: #658075; border-radius: 3px 3px 0 0; }
+.building-a { left: 11%; width: 24%; height: 30%; background: #f6f3e8; }
+.building-b { left: 37%; width: 30%; height: 43%; padding-top: 40px; background: #f0c898; }
+.building-b i { height: 50px; width: 22px; background: #476f5f; }
+.building-c { right: 9%; width: 22%; height: 34%; background: #faf4df; }
+.awning { position: absolute; top: 20px; width: 110%; height: 16px; border-radius: 3px; background: repeating-linear-gradient(90deg, #f8f4e7 0 15px, #376457 15px 30px); }
+.art-ground { position: absolute; bottom: 8%; height: 11%; width: 100%; background: #648471; }
+.art-caption { position: absolute; bottom: 2%; text-align: center; width: 100%; font-size: .65rem; font-weight: 600; color: var(--color-primary); }
+@media (min-width: 800px) { .connection-card { border-top: 0; padding-top: 0; border-left: 1px solid var(--color-border); padding-left: var(--space-7); } .town-art { min-height: 380px; } }

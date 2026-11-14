@@ -1,0 +1,12 @@
+# Trusted server configuration only. Copy to .dev.vars; never use a VITE_ prefix for these keys.
+# SUPABASE_URL defaults to the validated public project URL in local development.
+SUPABASE_SERVICE_ROLE_KEY=
+# At least 32 characters; shared with the separately scoped analytics limiter by default.
+CHECKOUT_HMAC_SECRET=
+# Optional separate analytics HMAC; otherwise CHECKOUT_HMAC_SECRET is used with domain separation.
+# ANALYTICS_HMAC_SECRET=
+# Runtime only; indexing also requires DEPLOYMENT_ENV=production and a matching HTTPS SITE_URL.
+DEPLOYMENT_ENV=development
+SITE_INDEXING_ENABLED=false
+ANALYTICS_ENABLED=true
+# SITE_URL=https://your-confirmed-production-origin.example
