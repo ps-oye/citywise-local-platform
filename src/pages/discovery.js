@@ -4,7 +4,9 @@ import { icon } from '../components/icons.js';
 import { mountSearchBox } from '../components/search-box.js';
 import { mountPromotionCarousel } from '../components/promotion-carousel.js';
 import { cardMarkup, categoryMarkup, railMarkup, skeletonMarkup, emptyMarkup, imageMarkup } from '../components/discovery-ui.js';
-import { parsePublicPath, isPublicPath } from '../config/public-routes.js';
+import { parsePublicPath, isPublicPath,cityHomePath } from '../config/public-routes.js';
+import {cityFilters} from '../domain/cities.js';
+import {platformHomeMarkup,citySearchMarkup} from '../components/platform-home.js';
 import { readDiscoveryFilters, updateUrl, categoryPath, isUuid, availabilityLabel } from '../domain/discovery.js';
 import { formatMoney } from '../utils/format.js';
 import { merchantPath } from '../domain/merchant.js';
@@ -36,16 +38,21 @@ export function mountDiscovery({ repository, merchantRepository, cart, checkout,
   function navigate(href,{replace=false}={}){
     const url=new URL(href,location.origin);
     if(url.origin!==location.origin || !isPublicPath(url.pathname))return;
+    const targetRoute=parsePublicPath(url.pathname);if(targetRoute.kind==='home')url.pathname=cityHomePath(targetRoute.citySlug);
     if(replace)history.replaceState({},'',url);else history.pushState({},'',url);
-    closeMenu();renderRoute(true);
+    if(locationDialog.open)locationDialog.close();closeMenu();renderRoute(true);
   }
   function setParams(changes,pathname){navigate(updateUrl(new URL(location.href),{listing:null,page:null,...changes},pathname));}
   function updateMetadata(items=[]){applyPageMetadata(pageMetadata({url:new URL(location.href),route,context,items,page:filters.page,brandName:config.brandName,origin:document.documentElement.dataset.siteOrigin||config.siteUrl||location.origin,indexable:document.documentElement.dataset.siteIndexing==='enabled'}));}
   function applyHeader(){
     const citySlug = context.city.slug;
-    document.querySelectorAll('[data-home-link]').forEach(a=>{a.href='/'+context.city.slug;a.toggleAttribute('aria-current',route.kind==='home');if(route.kind==='home')a.setAttribute('aria-current','page');});
+    document.querySelectorAll('[data-home-link]').forEach(a=>{a.hidden=false;a.href=cityHomePath(context.city);a.toggleAttribute('aria-current',route.kind==='home');if(route.kind==='home')a.setAttribute('aria-current','page');});
+    document.querySelectorAll('[data-explore-link],[data-categories-link]').forEach(a=>{a.hidden=false;});
+    document.querySelectorAll('[data-platform-link]').forEach(a=>{a.hidden=context.cities.length<2;a.removeAttribute('aria-current');});
+    document.querySelectorAll('a.brand').forEach(a=>{a.href=context.cities.length<2?cityHomePath(context.city):'/';});
+    const locationButton=document.querySelector('[data-location-open]');locationButton.setAttribute('aria-label',context.cities.length<2?'Choose your neighbourhood':'Choose your city and neighbourhood');locationButton.setAttribute('aria-haspopup','dialog');
     document.querySelectorAll('[data-explore-link]').forEach(a=>{a.href='/'+context.city.slug+'/explore';if(route.kind==='explore')a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
-    document.querySelectorAll('[data-categories-link]').forEach(a=>{a.href='/'+context.city.slug+'#categories';});
+    document.querySelectorAll('[data-categories-link]').forEach(a=>{a.href=cityHomePath(context.city)+'#categories';});
     document.querySelector('[data-current-location]').textContent=currentLocality?.name || context.city.name;
     document.querySelector('[data-nav-categories]').innerHTML=context.categories.filter(c=>!c.parent_id).slice(0,5).map(c=>'<a href="'+e(categoryPath(context.city,c))+'">'+e(c.short_name||c.name)+'</a>').join('');
     document.querySelector('[data-demo-notice]').hidden=!(context.has_demo_content || context.advertisements.some(ad=>ad.is_demo));
@@ -56,9 +63,10 @@ export function mountDiscovery({ repository, merchantRepository, cart, checkout,
     });
   }
   function renderLocation(){
-    if(!context?.city){toast('The local catalog is not ready yet.');return;}
+    if(!context?.city){document.getElementById('cities')?.scrollIntoView();document.getElementById('city-query')?.focus({preventScroll:true});return;}
     const selected=filters.localitySlug;
     document.querySelector('[data-location-content]').innerHTML=(context.cities.length>1?'<div class="city-field"><label class="field-label" for="location-city">City</label><select id="location-city" data-city-select>'+context.cities.map(city=>'<option value="'+e(city.slug)+'"'+(city.id===context.city.id?' selected':'')+'>'+e(city.name)+', '+e(city.state)+'</option>').join('')+'</select></div>':'<p class="city-name">'+icon('pin')+e(context.city.name)+', '+e(context.city.state)+'</p>')+'<div class="locality-options"><button class="locality-option" type="button" data-locality="" aria-pressed="'+!selected+'">'+icon('grid')+'All neighbourhoods'+(!selected?icon('check'):'')+'</button>'+context.localities.map(locality=>'<button class="locality-option" type="button" data-locality="'+e(locality.slug)+'" aria-pressed="'+(selected===locality.slug)+'">'+icon('pin')+e(locality.name)+(selected===locality.slug?icon('check'):'')+'</button>').join('')+'</div><p class="location-caption">Choose an area to find places nearby. Your precise location is never requested.</p>';
+    if(context.cities.length>1)document.querySelector('[data-location-content]').insertAdjacentHTML('beforeend','<a class="text-link" href="/" data-dialog-close>Browse all cities '+icon('arrow')+'</a>');
     if(!locationDialog.open)locationDialog.showModal();
   }
   function closePreview(updateHistory=true){
@@ -139,7 +147,7 @@ export function mountDiscovery({ repository, merchantRepository, cart, checkout,
     const subtitle=route.kind==='category'?currentCategory.description:'Find a familiar favourite or something new, in '+context.city.name+'.';
     applyBrand(config,title);
     const children=context.categories.filter(c=>c.parent_id===currentCategory?.id);
-    main.innerHTML='<div class="container"><section class="browse-intro"><div><nav class="breadcrumb" aria-label="Breadcrumb"><a href="/'+e(context.city.slug)+'">Home</a>'+icon('chevron')+'<a href="/'+e(context.city.slug)+'/explore">Explore</a>'+(route.kind==='category'?icon('chevron')+'<span>'+e(currentCategory.short_name||currentCategory.name)+'</span>':'')+'</nav><h1>'+e(title)+'</h1><p class="lead">'+e(subtitle||'')+'</p>'+(children.length?'<div class="subcategories">'+children.map(c=>'<a class="filter-chip" href="'+e(categoryPath(context.city,c))+'">'+e(c.short_name||c.name)+'</a>').join('')+'</div>':'')+'</div>'+(currentCategory?imageMarkup(currentCategory,{className:'browse-category-image',category:true,eager:true}):'')+'</section><div class="browse-layout">'+filtersMarkup()+'<section class="results-content" aria-label="Places"><h2 class="sr-only">Places</h2><div class="results-search" data-results-search></div><div class="results-toolbar"><span class="results-count" role="status" data-result-count>Finding places…</span><label class="sort-field" for="sort-filter">Sort by <select id="sort-filter" name="sort" data-filter>'+[['recommended','Recommended'],['name','Name A–Z'],['newest','Recently added'],['price_asc','Price: low to high'],['price_desc','Price: high to low']].map(([value,label])=>'<option value="'+value+'"'+(value===filters.sort?' selected':'')+'>'+label+'</option>').join('')+'</select></label></div><div data-results>'+skeletonMarkup(3)+'</div><div class="results-pagination" data-result-pagination hidden><p data-shown-count></p><button type="button" class="button button-outline" data-load-results>Show more places '+icon('arrow')+'</button></div></section></div></div>';
+    main.innerHTML='<div class="container"><section class="browse-intro"><div><nav class="breadcrumb" aria-label="Breadcrumb"><a href="/'+e(context.city.slug)+'/">Home</a>'+icon('chevron')+'<a href="/'+e(context.city.slug)+'/explore">Explore</a>'+(route.kind==='category'?icon('chevron')+'<span>'+e(currentCategory.short_name||currentCategory.name)+'</span>':'')+'</nav><h1>'+e(title)+'</h1><p class="lead">'+e(subtitle||'')+'</p>'+(children.length?'<div class="subcategories">'+children.map(c=>'<a class="filter-chip" href="'+e(categoryPath(context.city,c))+'">'+e(c.short_name||c.name)+'</a>').join('')+'</div>':'')+'</div>'+(currentCategory?imageMarkup(currentCategory,{className:'browse-category-image',category:true,eager:true}):'')+'</section><div class="browse-layout">'+filtersMarkup()+'<section class="results-content" aria-label="Places"><h2 class="sr-only">Places</h2><div class="results-search" data-results-search></div><div class="results-toolbar"><span class="results-count" role="status" data-result-count>Finding places…</span><label class="sort-field" for="sort-filter">Sort by <select id="sort-filter" name="sort" data-filter>'+[['recommended','Recommended'],['name','Name A–Z'],['newest','Recently added'],['price_asc','Price: low to high'],['price_desc','Price: high to low']].map(([value,label])=>'<option value="'+value+'"'+(value===filters.sort?' selected':'')+'>'+label+'</option>').join('')+'</select></label></div><div data-results>'+skeletonMarkup(3)+'</div><div class="results-pagination" data-result-pagination hidden><p data-shown-count></p><button type="button" class="button button-outline" data-load-results>Show more places '+icon('arrow')+'</button></div></section></div></div>';
     pageCleanups.push(mountSearchBox(document.querySelector('[data-results-search]'),{
       repository,getScope:()=>({...getScope(),categoryId:currentCategory?.id}),value:filters.query,label:'Search within these places',
       placeholder:route.kind==='category'?'Search '+(currentCategory.short_name||currentCategory.name).toLowerCase()+'…':'Search within local places…',
@@ -180,6 +188,29 @@ export function mountDiscovery({ repository, merchantRepository, cart, checkout,
     if(!pageBootstrap&&!(route?.kind==='merchant'&&main.querySelector('[data-merchant-root]')))main.innerHTML='<div class="container initial-loading" role="status"><p class="eyebrow">A little local inspiration</p>'+skeletonMarkup()+'</div>';
     try{
       if(!route)throw new Error('not_found');
+      if(route.kind==='platform'){
+        const selection=cityFilters(url),all=pageBootstrap?.platform&&!pageBootstrap.platform.query&&pageBootstrap.platform.page===1?pageBootstrap.platform:await repository.cities(cityFilters(new URL('/',url)),routeRequest.signal);
+        if(version!==routeVersion)return;
+        if(all.cities.length===1&&!all.hasMore){navigate(cityHomePath(all.cities[0])+url.search+url.hash,{replace:true});return;}
+        const result=pageBootstrap?.platform||(selection.query||selection.page>1?await repository.cities(selection,routeRequest.signal):all);
+        if(version!==routeVersion)return;
+        context={cities:result.cities};currentLocality=null;currentCategory=null;filters.page=result.page;
+        // Keep server-rendered form values if someone types before the module loads.
+        if(!pageBootstrap?.platform)main.innerHTML=platformHomeMarkup(result);
+        headerCleanup?.();headerCleanup=null;
+        document.querySelector('[data-search-slot]').innerHTML=citySearchMarkup(result.query,{compact:true});
+        document.querySelector('[data-current-location]').textContent='Choose your city';
+        const locationButton=document.querySelector('[data-location-open]');locationButton.setAttribute('aria-label','Choose your city');locationButton.removeAttribute('aria-haspopup');
+        document.querySelector('[data-nav-categories]').innerHTML='';
+        document.querySelector('[data-demo-notice]').hidden=true;
+        document.querySelectorAll('[data-home-link],[data-explore-link],[data-categories-link]').forEach(a=>{a.hidden=true;});
+        document.querySelectorAll('[data-platform-link]').forEach(a=>{a.hidden=false;a.setAttribute('aria-current','page');});
+        document.querySelectorAll('a.brand').forEach(a=>{a.href='/';});
+        updateMetadata();
+        if(focus){main.focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'});}
+        if(url.hash)requestAnimationFrame(()=>document.getElementById(url.hash.slice(1))?.scrollIntoView());
+        return;
+      }
       context=pageBootstrap?.context||await repository.context(route.citySlug,routeRequest.signal);
       if(version!==routeVersion)return;
       if(!context?.city){main.innerHTML='<div class="container">'+emptyMarkup('This town is getting ready','The local catalog is not available for this city yet. Please check back soon.',{name:'retry',label:'Try again'},'h1')+'</div>';return;}
@@ -234,11 +265,16 @@ export function mountDiscovery({ repository, merchantRepository, cart, checkout,
     if(event.target.closest('[data-locality]')){const selected=event.target.closest('[data-locality]').dataset.locality;locationDialog.close();setParams({locality:selected});}
     if(event.target.closest('[data-menu-open]')){const button=document.querySelector('[data-menu-open]');const open=button.getAttribute('aria-expanded')!=='true';button.setAttribute('aria-expanded',String(open));document.querySelector('#main-navigation').classList.toggle('is-open',open);}
     if(event.target.closest('[data-dialog-close]')){const dialog=event.target.closest('dialog');if(dialog===previewDialog)closePreview();else dialog.close();}
-    if(event.target.closest('[data-share-preview]'))navigator.clipboard.writeText(location.href).then(()=>toast('Preview link copied.')).catch(()=>toast('Copy the link from your address bar to share this preview.'));
+    if(event.target.closest('[data-share-preview]'))navigator.clipboard.writeText((document.documentElement.dataset.siteOrigin||config.siteUrl||location.origin)+location.pathname+location.search).then(()=>toast('Preview link copied.')).catch(()=>toast('Copy the link from your address bar to share this preview.'));
   },{signal:pageLife.signal});
   document.addEventListener('change',event=>{
     if(event.target.matches('[data-filter]')){const changes={[event.target.name]:event.target.value};if(event.target.name==='category')for(const key of Object.keys(filters.facets))changes['f.'+key]=null;setParams(changes);}
-    if(event.target.matches('[data-city-select]')){locationDialog.close();navigate('/'+event.target.value);}
+    if(event.target.matches('[data-city-select]')){locationDialog.close();navigate(cityHomePath(event.target.value));}
+  },{signal:pageLife.signal});
+  document.addEventListener('submit',event=>{
+    if(!event.target.matches('[data-city-search]'))return;
+    event.preventDefault();const value=new FormData(event.target).get('city_q')?.trim();
+    navigate('/'+(value?'?'+new URLSearchParams({city_q:value}):'')+'#cities');
   },{signal:pageLife.signal});
   document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenu();},{signal:pageLife.signal});
   previewDialog.addEventListener('cancel',event=>{event.preventDefault();closePreview();},{signal:pageLife.signal});

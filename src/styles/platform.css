@@ -1,0 +1,78 @@
+.platform-home { padding-top: 30px; }
+.platform-hero { display: grid; grid-template-columns: 1.05fr 1fr; align-items: center; gap: 42px; padding: 32px 0 62px; }
+.platform-intro .eyebrow { font-size: .68rem; letter-spacing: .12em; margin-bottom: 24px; }
+.platform-intro h1 { font-size: clamp(3rem, 5.3vw, 4.8rem); line-height: 1.08; letter-spacing: -.06em; font-weight: 550; margin: 0 0 24px; }
+.platform-intro h1 em { font-family: var(--font-display); font-weight: 400; letter-spacing: -.045em; }
+.platform-lead { color: #53665b; max-width: 420px; font-size: 1rem; line-height: 1.8; margin-bottom: 28px; }
+.platform-intro .button { gap: 30px; min-height: 50px; }
+.platform-first { color: #627368; font-size: .75rem; margin: 16px 0 0; }
+.platform-art { position: relative; border-radius: 120px 120px 24px 24px; background: #153e34; overflow: hidden; isolation: isolate; }
+.platform-scene { width: 100%; height: auto; display: block; }
+.platform-art-label { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 18px 12px; color: #f6ebd0; font-size: .75rem; letter-spacing: .025em; }
+.platform-art-label .icon { width: 17px; }
+.platform-cities { padding: 40px 0 54px; border-top: 1px solid var(--color-line); scroll-margin-top: 160px; }
+.platform-city-heading { display: flex; justify-content: space-between; align-items: center; gap: 32px; margin-bottom: 30px; }
+.platform-city-heading .eyebrow { font-size: .62rem; margin-bottom: 10px; }
+.platform-city-heading h2 { font-size: clamp(1.6rem, 3vw, 2.1rem); letter-spacing: -.045em; margin-bottom: 10px; }
+.platform-city-heading p:last-child { color: #607269; font-size: .85rem; margin: 0; }
+.city-search { width: min(100%, 330px); }
+.city-search .search-field { background: white; min-height: 51px; }
+.city-search-compact { max-width: 420px; }
+.city-search-compact .search-field { background: #f7f8f4; min-height: 46px; }
+.city-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.city-card { display: block; text-decoration: none; color: var(--color-forest); border: 1px solid #dbe1d5; border-radius: var(--radius-card); overflow: hidden; background: white; transition: box-shadow .18s ease, border-color .18s ease; }
+.city-card:hover { border-color: #a2b6a5; box-shadow: var(--shadow-card); }
+.city-card-art { position: relative; height: 160px; overflow: hidden; background: #e8eee5; display: grid; place-items: center; }
+.city-monogram { font-family: var(--font-display); font-style: italic; font-size: 7rem; line-height: 1; color: #3d6654; position: relative; z-index: 1; }
+.city-card-lines { position: absolute; width: 310px; height: 310px; border: 1px solid #c5d1bf; border-radius: 50%; right: -60px; bottom: -170px; box-shadow: 0 0 0 20px #dce4d6, 0 0 0 21px #c5d1bf, 0 0 0 45px #e8eee5, 0 0 0 46px #c5d1bf; }
+.city-card-copy { display: flex; justify-content: space-between; align-items: center; padding: 22px 24px; gap: 12px; }
+.city-badge { font-size: .6rem; text-transform: uppercase; letter-spacing: .09em; color: #52664f; font-weight: 650; }
+.city-card h3 { font-size: 1.4rem; letter-spacing: -.035em; margin: 8px 0 4px; }
+.city-card p { font-size: .8rem; color: #607269; margin: 0; }
+.city-card-arrow { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--color-line); border-radius: 50%; flex: 0 0 auto; }
+.city-query-note { font-size: .85rem; color: #52664f; }
+.city-query-note a { margin-left: 16px; }
+.city-empty { padding: 38px; text-align: center; border: 1px dashed var(--color-line); border-radius: var(--radius-card); }
+.city-empty p { color: #607269; }
+.platform-local-note { display: grid; grid-template-columns: 1fr 1.2fr; gap: 48px; padding: 36px 42px; margin-bottom: 54px; background: #f2f3eb; border-radius: 18px; }
+.platform-local-note h2 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.7rem, 3vw, 2.3rem); line-height: 1.2; letter-spacing: -.03em; margin: 0; }
+.platform-local-note .eyebrow { font-size: .62rem; margin-bottom: 15px; }
+.platform-local-note p { font-size: .85rem; color: #52664f; }
+.platform-local-note ul { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0; margin: 24px 0; list-style: none; font-size: .78rem; }
+.platform-local-note li::before { content: '↗'; margin-right: 10px; }
+.platform-local-note .platform-fineprint { font-size: .7rem; margin: 0; }
+.primary-nav a[hidden],.discovery-footer a[hidden] { display: none; }
+@media (max-width: 1000px) {
+  .platform-hero { gap: 24px; }
+  .city-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 650px) {
+  .platform-home { padding-top: 8px; }
+  .platform-hero { grid-template-columns: 1fr; gap: 28px; padding: 25px 0 30px; }
+  .platform-intro h1 { font-size: clamp(2.9rem, 12vw, 4rem); margin-bottom: 20px; }
+  .platform-intro .eyebrow { font-size: .55rem; margin-bottom: 18px; }
+  .platform-lead { font-size: .9rem; line-height: 1.7; margin-bottom: 22px; }
+  .platform-art { border-radius: 80px 80px 18px 18px; max-width: 420px; width: 100%; justify-self: center; }
+  .platform-scene { max-height: 260px; }
+  .platform-art-label { padding: 13px; font-size: .65rem; }
+  .platform-city-heading { flex-direction: column; align-items: stretch; gap: 22px; margin-bottom: 24px; }
+  .platform-city-heading h2 { font-size: 1.6rem; }
+  .city-search { width: 100%; }
+  .city-grid { grid-template-columns: 1fr; gap: 18px; }
+  .city-card { display: grid; grid-template-columns: 100px minmax(0,1fr); }
+  .city-card-art { height: auto; min-height: 132px; }
+  .city-monogram { font-size: 5rem; }
+  .city-card-copy { padding: 18px 14px; gap: 8px; }
+  .city-card h3 { font-size: 1.25rem; overflow-wrap: anywhere; }
+  .city-card-arrow { width: 28px; height: 28px; }
+  .city-card-arrow .icon { width: 16px; }
+  .city-badge { font-size: .52rem; }
+  .platform-cities { padding: 28px 0 32px; scroll-margin-top: 110px; }
+  .platform-local-note { grid-template-columns: 1fr; padding: 26px 22px; gap: 22px; margin-bottom: 32px; }
+  .platform-local-note ul { grid-template-columns: 1fr; gap: 10px; }
+}
+
+.footer-contact { min-width: 0; }
+.footer-contact h2 { margin: 0 0 16px; font-size: inherit; font-weight: 600; }
+.footer-contact a { color: inherit; overflow-wrap: anywhere; }
+@media (min-width: 1001px) { .footer-main { grid-template-columns: 1.3fr .8fr 1fr 1.2fr; } }

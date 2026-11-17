@@ -1,6 +1,7 @@
 import {parseOrigin} from '../config/environment.js';
 import {readPageNumber} from './discovery.js';
 import {verifiedTelephone} from './merchant.js';
+import {cityHomePath} from '../config/public-routes.js';
 
 export const jsonForHtml=value=>JSON.stringify(value).replace(/[<>&\u2028\u2029]/g,char=>'\\u'+char.charCodeAt(0).toString(16).padStart(4,'0'));
 const summary=value=>String(value||'').replace(/\s+/g,' ').trim().slice(0,160);
@@ -8,13 +9,22 @@ export const pageNumber=readPageNumber;
 export function deploymentSettings(env={},requestUrl='http://127.0.0.1'){
   const url=new URL(requestUrl),configured=parseOrigin(env.SITE_URL||env.VITE_SITE_URL||'');
   const origin=configured||parseOrigin(url.origin)||'http://127.0.0.1';
-  return {origin,brandName:(env.VITE_BRAND_NAME||'Rawatbhata One').slice(0,80),
-    indexable:env.DEPLOYMENT_ENV==='production'&&env.SITE_INDEXING_ENABLED==='true'&&Boolean(configured?.startsWith('https://'))&&url.origin===configured};
+  return {origin,brandName:(env.VITE_BRAND_NAME||'ShaharOne').slice(0,80),
+    indexable:env.SITE_INDEXING_ENABLED==='true'&&Boolean(configured?.startsWith('https://'))&&url.origin===configured};
 }
-export function pageMetadata({url,route,context,merchant,items=[],indexable=false,origin,brandName='Rawatbhata One',page=1}){
+export function pageMetadata({url,route,context,merchant,items=[],indexable=false,origin,brandName='ShaharOne',page=1}){
+  if(route.kind==='platform'){
+    const canonical=origin+'/'+(page>1?'?page='+page:''),description='Find your city with '+brandName+'. Discover local food, shops, stays, services and places, starting in Rawatbhata, Rajasthan.';
+    const filtered=[...url.searchParams.keys()].some(key=>key!=='page');
+    return {title:'Your city, a little closer'+(page>1?' · Page '+page:'')+' · '+brandName,description,canonical,image:origin+'/images/share-card.png',imageAlt:brandName+' — your city, a little closer',type:'website',robots:indexable&&!filtered?'index, follow, max-image-preview:large':'noindex, follow',structuredData:{'@context':'https://schema.org','@graph':[
+      {'@type':'WebSite','@id':origin+'/#website',name:brandName,url:origin+'/'},
+      {'@type':'Organization','@id':origin+'/#organization',name:brandName,url:origin+'/',logo:origin+'/icons/apple-touch-icon.png'},
+      {'@type':'CollectionPage','@id':canonical,name:'Choose your city · '+brandName,url:canonical,description,isPartOf:{'@id':origin+'/#website'},mainEntity:{'@type':'ItemList',itemListElement:(context?.cities||[]).map((city,i)=>({'@type':'ListItem',position:(page-1)*24+i+1,name:city.name,url:origin+cityHomePath(city)}))}},
+    ]}};
+  }
   const city=merchant?.city||context?.city,category=context?.categories?.find(c=>c.slug===route.categorySlug);
   const filtered=[...url.searchParams.keys()].some(key=>key!=='page');
-  let path=merchant?.canonical_path||('/'+city.slug+(route.kind==='home'?'':route.kind==='category'?'/'+category.slug:route.kind==='search'?'/search':'/explore'));
+  let path=merchant?.canonical_path||(route.kind==='home'?cityHomePath(city):'/'+city.slug+(route.kind==='category'?'/'+category.slug:route.kind==='search'?'/search':'/explore'));
   if(page>1&&route.kind!=='merchant'&&route.kind!=='home')path+='?page='+page;
   const canonical=origin+path;
   const heading=merchant?.name||(route.kind==='home'?city.name+', rediscovered':route.kind==='category'?category.name+' in '+city.name:route.kind==='search'?'Search local places in '+city.name:'Explore local places in '+city.name);
@@ -23,7 +33,7 @@ export function pageMetadata({url,route,context,merchant,items=[],indexable=fals
   const allowed=indexable&&real&&!filtered&&route.kind!=='search'&&route.kind!=='explore';
   const media=merchant?.gallery?.find(image=>image.object_path===merchant.media?.object_path)||merchant?.gallery?.[0];
   const image=merchant&&!merchant.is_demo&&media?.id?origin+'/media/'+media.id:origin+'/images/share-card.png';
-  const crumbs=[{name:city.name,url:origin+'/'+city.slug}];
+  const crumbs=[{name:brandName,url:origin+'/'},{name:city.name,url:origin+cityHomePath(city)}];
   if(merchant)crumbs.push({name:merchant.category_name,url:origin+'/'+city.slug+'/'+merchant.category_slug},{name:merchant.name,url:canonical});
   else if(route.kind!=='home')crumbs.push({name:category?.name||'Explore',url:canonical});
   const graph=[{'@type':'WebSite','@id':origin+'/#website',name:brandName,url:origin+'/'},

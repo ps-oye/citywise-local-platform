@@ -10,6 +10,7 @@ import { serveMerchantPage } from '../src/server/merchant-page.js';
 import {serveDiscoveryPage} from '../src/server/discovery-page.js';
 import {serveSeoEndpoint,isSeoEndpoint} from '../src/server/seo-endpoints.js';
 import {handleEvents} from '../src/server/events-handler.js';
+import {siteRedirect} from '../src/server/site-redirects.js';
 
 export function applicationRuntime(mode){
   async function install(server,isPreview){
@@ -25,7 +26,9 @@ export function applicationRuntime(mode){
         if(!['GET','HEAD'].includes(request.method)){init.body=Readable.toWeb(request);init.duplex='half';}
         const webRequest=new Request(url,init);
         let result;
-        if(url.pathname==='/api/admin/media')result=await handleAdminMedia(webRequest,{env});
+        const redirect=siteRedirect(webRequest,env);
+        if(redirect)result=redirect;
+        else if(url.pathname==='/api/admin/media')result=await handleAdminMedia(webRequest,{env});
         else if(url.pathname==='/api/checkout')result=await handleCheckout(webRequest,{client:trusted,identity:request.socket.remoteAddress,secret:env.CHECKOUT_HMAC_SECRET||env.SUPABASE_SERVICE_ROLE_KEY||env.SUPABASE_SECRET_KEY});
         else if(url.pathname==='/api/events')result=await handleEvents(webRequest,{client:trusted,identity:request.socket.remoteAddress,secret:env.ANALYTICS_HMAC_SECRET||env.CHECKOUT_HMAC_SECRET,enabled:env.ANALYTICS_ENABLED!=='false'});
         else if(!['GET','HEAD'].includes(request.method))result=new Response('Method not allowed',{status:405,headers:{Allow:'GET, HEAD'}});

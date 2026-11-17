@@ -81,23 +81,23 @@ test('trusted checkout rejects cross-origin, malformed and oversized requests be
   assert.equal(calls,0);
 });
 test('checkout uses trusted identity, commits the limiter first and records handoff only after building the link',async()=>{
-  const calls=[];const client={rpc:async(name,args)=>{calls.push({name,args});return {data:name==='checkout_consume_limit'?{allowed:true}:name==='checkout_initiate'?{status:'initiated',receipt,request_hash:token}:true};}};
+  const calls=[];const client={rpc:async(name,args)=>{calls.push({name,args});return {data:name==='merchant_is_food'?false:name==='checkout_consume_limit'?{allowed:true}:name==='checkout_initiate'?{status:'initiated',receipt,request_hash:token}:true};}};
   const response=await handleCheckout(request(),{client,...trusted});assert.equal(response.status,200);
   const result=await response.json();assert.equal(result.status,'handoff_created');assert.equal(result.url,buildWhatsAppUrl(receipt));assert.equal(result.request_hash,undefined);
-  assert.deepEqual(calls.map(call=>call.name),['checkout_consume_limit','checkout_initiate','checkout_mark_handoff']);
-  assert.match(calls[0].args.p_client_hash,/^[a-f0-9]{64}$/);assert.equal(response.headers.get('Cache-Control'),'no-store');
+  assert.deepEqual(calls.map(call=>call.name),['merchant_is_food','checkout_consume_limit','checkout_initiate','checkout_mark_handoff']);
+  assert.match(calls[1].args.p_client_hash,/^[a-f0-9]{64}$/);assert.equal(response.headers.get('Cache-Control'),'no-store');
   const noIdentity=await handleCheckout(request(),{client,secret:trusted.secret});assert.equal(noIdentity.status,503);
   assert.notEqual(await clientFingerprint('127.0.0.1',trusted.secret,new Date('2026-11-12')),await clientFingerprint('127.0.0.1',trusted.secret,new Date('2026-11-13')));
 });
 test('rate limits, quote changes and internal errors produce narrow responses without exposing database details',async()=>{
-  const limited=await handleCheckout(request(),{...trusted,client:{rpc:async()=>({data:{allowed:false,retry_after:60}})}});assert.equal(limited.status,429);assert.equal(limited.headers.get('Retry-After'),'60');
-  const changed=await handleCheckout(request(),{...trusted,client:{rpc:async name=>({data:name==='checkout_consume_limit'?{allowed:true}:{status:'changed',quote:{total_minor:26000}}})}});assert.equal(changed.status,409);assert.equal((await changed.json()).code,'quote_changed');
+  const limited=await handleCheckout(request(),{...trusted,client:{rpc:async name=>({data:name==='merchant_is_food'?false:{allowed:false,retry_after:60}})}});assert.equal(limited.status,429);assert.equal(limited.headers.get('Retry-After'),'60');
+  const changed=await handleCheckout(request(),{...trusted,client:{rpc:async name=>({data:name==='merchant_is_food'?false:name==='checkout_consume_limit'?{allowed:true}:{status:'changed',quote:{total_minor:26000}}})}});assert.equal(changed.status,409);assert.equal((await changed.json()).code,'quote_changed');
   const failed=await handleCheckout(request(),{...trusted,client:{rpc:async()=>({error:{message:'private SQL detail'}})}});assert.equal(failed.status,503);assert.ok(!(await failed.text()).includes('private SQL detail'));
 });
 test('merchant HTML exposes useful text without JavaScript and safely handles redirects and hidden listings',async()=>{
   const merchantData={id:merchant,slug:'test-kitchen',canonical_path:'/town/food/test-kitchen',name:'Test <Kitchen>',listing_type:'RESTAURANT',description:'A <script>plain text</script> description containing replacement tokens $& $` $\' $$',short_description:'Fresh $& sample food',city:{name:'Town',slug:'town'},category_slug:'food',category_name:'Food',product_categories:[],gallery:[],offerings:[],weekly_hours:[],special_hours:[],service_areas:[],timezone:'Asia/Kolkata',status:{state:'hours_unavailable',checked_at:'2026-11-12T12:00:00Z'}};
   const context={request:new Request('https://example.com/town/food/test-kitchen'),env:{VITE_SUPABASE_URL:'https://project.supabase.co',VITE_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_fixture',ASSETS:{fetch:async()=>new Response('<html><head><title>Shell</title><meta name="description" content="Shell"></head><body><main>Loading</main></body></html>')}}};
-  const fetcher=async url=>new Response(JSON.stringify(url.endsWith('merchant_detail')?merchantData:{items:[],total:0,has_more:false,next_offset:12}));
+  const fetcher=async url=>new Response(JSON.stringify(url.endsWith('merchant_detail_checkout')?merchantData:{items:[],total:0,has_more:false,next_offset:12}));
   const response=await serveMerchantPage(context,{citySlug:'town',categorySlug:'food',listingSlug:'test-kitchen'},{fetcher});
   const html=await response.text();assert.equal(response.status,200);assert.match(html,/<h1>Test &lt;Kitchen&gt;<\/h1>/);assert.match(html,/Contact & visiting information/);assert.ok(!html.includes('<script>plain text'));
   const embedded=JSON.parse(html.match(/id="merchant-bootstrap">([\s\S]*?)<\/script>/)[1]);assert.equal(embedded.merchant.name,merchantData.name);assert.equal(embedded.merchant.description,merchantData.description);

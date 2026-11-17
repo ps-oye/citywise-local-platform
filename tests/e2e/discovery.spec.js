@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 const api='http://127.0.0.1:54329/rest/v1/rpc/';
 async function home(page) {
-  await page.goto('/');
+  await page.goto('/rawatbhata/');
   await expect(page.getByRole('heading',{level:1})).toHaveText('Your town, rediscovered.');
   await expect(page.locator('.listing-section')).toHaveCount(4);
 }
@@ -58,14 +58,14 @@ test('category navigation, dietary filters, locality, sorting, refresh and back 
 
 test('location selector filters the homepage and restores all neighbourhoods',async({page})=>{
   await home(page);
-  await page.getByRole('button',{name:'Choose your neighbourhood'}).click();
+  await page.getByRole('button',{name:'Choose your city and neighbourhood'}).click();
   const dialog=page.getByRole('dialog',{name:'Where are you exploring?'});
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button',{name:'Demo Lakeside',exact:true}).click();
   await expect(page).toHaveURL(/locality=demo-lakeside/);
   await expect(page.locator('.listing-section').first().locator('.place-card')).toHaveCount(1);
   await expect(page.locator('[data-current-location]')).toHaveText('Demo Lakeside');
-  await page.getByRole('button',{name:'Choose your neighbourhood'}).click();
+  await page.getByRole('button',{name:'Choose your city and neighbourhood'}).click();
   await dialog.getByRole('button',{name:'All neighbourhoods'}).click();
   await expect(page.locator('.listing-section').first().locator('.place-card')).toHaveCount(4);
   await expect(page).not.toHaveURL(/locality=/);
@@ -167,7 +167,7 @@ test('catalog setup errors and unknown categories recover without fake listings'
 
 test('untrusted descriptions and search text render as plain text',async({page})=>{
   await home(page);
-  await page.route(api+'merchant_detail',async route=>{
+  await page.route(api+'merchant_detail_checkout',async route=>{
     const response=await route.fetch();const item=await response.json();
     item.name='<img src=x onerror="window.injected=true">';
     item.description='<script>window.injected=true</script>';
@@ -178,7 +178,7 @@ test('untrusted descriptions and search text render as plain text',async({page})
   await expect(page.locator('h1 img')).toHaveCount(0);
   await expect(page.locator('main script')).toHaveCount(0);
   expect(await page.evaluate(()=>window.injected)).toBeUndefined();
-  await page.unroute(api+'merchant_detail');
+  await page.unroute(api+'merchant_detail_checkout');
   await page.goto('/rawatbhata/search?q='+encodeURIComponent('<img src=x onerror="window.injected=true">'));
   await expect(page.getByRole('heading',{level:1})).toContainText('<img');
   expect(await page.evaluate(()=>window.injected)).toBeUndefined();
@@ -192,13 +192,13 @@ test('mobile navigation, small viewports and keyboard skip navigation remain usa
     await page.locator('.primary-nav').getByRole('link',{name:'Explore all',exact:true}).click();
     await expect(page.locator('#main-navigation')).not.toBeVisible();
     await expect(page.locator('.results-grid .place-card')).toHaveCount(12);
-    await page.goto('/');await expect(page.locator('.listing-section')).toHaveCount(4);
+    await page.goto('/rawatbhata/');await expect(page.locator('.listing-section')).toHaveCount(4);
   }
   for(const width of [320,390,768,1440]){
     await page.setViewportSize({width,height:900});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
   }
-  await page.goto('/');
+  await page.goto('/rawatbhata/');
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link',{name:'Skip to content'})).toBeFocused();
   await page.keyboard.press('Enter');
@@ -210,6 +210,6 @@ test('administration remains separate from public discovery and returns to it',a
   await expect(page.getByRole('heading',{name:'Sign in to your workspace'})).toBeVisible();
   await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeVisible();
   await page.getByRole('link',{name:'Visit public site'}).click();
-  await expect(page.getByRole('heading',{level:1})).toHaveText('Your town, rediscovered.');
+  await expect(page.getByRole('heading',{level:1})).toHaveText('Your city.A little closer.');
 });
 

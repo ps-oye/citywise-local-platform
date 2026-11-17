@@ -6,7 +6,48 @@ import {handleAdminMedia} from '../../src/server/admin-media-handler.js';
 import {createAdminSession} from '../../src/services/admin-session.js';
 import {createSupabaseClient} from '../../src/data/supabase-client.js';
 import {readEnvironment} from '../../src/config/environment.js';
+import {createAdminRepository} from '../../src/data/admin-repository.js';
 const ID='20000000-0000-4000-8000-000000000001';
+
+test('admin bootstrap uses the existing guarded context when the delivery RPC is missing',async()=>{
+  const calls=[],context={city_id:ID,categories:[{id:'food',name:'Food'}]};let migrated=false;
+  const repo=createAdminRepository({rpc:async(name,args)=>{
+    calls.push({name,args});
+    if(name==='admin_context_checkout'&&!migrated)return {error:{code:'PGRST202',message:'Function missing'}};
+    return {data:name.startsWith('admin_context')?context:{id:ID}};
+  }});
+  const loaded=await repo.context(ID);assert.equal(loaded.delivery_tracking_ready,false);assert.deepEqual(loaded.categories,context.categories);
+  assert.deepEqual(calls.slice(0,2).map(call=>call.name),['admin_context_checkout','admin_context']);
+  assert.deepEqual(calls[0].args,calls[1].args);
+  await repo.saveTaxonomy('category',{id:ID,name:'Food'},'2026-11-16T00:00:00Z');assert.equal(calls.at(-1).name,'admin_save_taxonomy');
+  assert.throws(()=>repo.saveTaxonomy('category',{id:ID,food_catalog:true}),/ADMIN_DELIVERY_UPDATE_REQUIRED/);
+  migrated=true;assert.equal((await repo.context(ID)).delivery_tracking_ready,true);
+  await repo.saveTaxonomy('category',{id:ID,food_catalog:true});assert.equal(calls.at(-1).name,'admin_save_taxonomy_checkout');
+});
+
+test('migrated admin bootstrap retains food capabilities without a legacy request',async()=>{
+  const calls=[],context={city_id:ID,categories:[{id:'food',food_catalog:true}]};
+  const repo=createAdminRepository({rpc:async name=>{calls.push(name);return {data:context};}});
+  const loaded=await repo.context(ID);assert.equal(loaded.delivery_tracking_ready,true);assert.deepEqual(loaded.categories,context.categories);assert.deepEqual(calls,['admin_context_checkout']);
+});
+
+test('admin compatibility never falls back after authorization, network or other database failures',async()=>{
+  for(const code of ['42501','PGRST301','08006','22023','']){
+    const calls=[],repo=createAdminRepository({rpc:async name=>{calls.push(name);return {error:{code,message:'Denied or unavailable'}};}});
+    await assert.rejects(repo.context(ID),error=>error.code===code);assert.deepEqual(calls,['admin_context_checkout']);
+  }
+});
+
+test('legacy context must still authorize the administrator before bootstrap succeeds',async()=>{
+  const calls=[],repo=createAdminRepository({rpc:async name=>{calls.push(name);return {error:{code:name==='admin_context_checkout'?'PGRST202':'42501',message:'Denied'}};}});
+  await assert.rejects(repo.context(ID),error=>error.code==='42501');assert.deepEqual(calls,['admin_context_checkout','admin_context']);
+});
+
+test('missing database updates have an actionable message without exposing backend error text',()=>{
+  for(const error of [{code:'PGRST202',message:'Sensitive backend detail'},{message:'ADMIN_DELIVERY_UPDATE_REQUIRED'}]){
+    assert.match(adminError(error),/database update is missing/);assert.doesNotMatch(adminError(error),/Sensitive|connection/);
+  }
+});
 function image(width=32,height=24){const data=new Uint8Array(30);data.set(Buffer.from('RIFF'),0);new DataView(data.buffer).setUint32(4,22,true);data.set(Buffer.from('WEBPVP8 '),8);new DataView(data.buffer).setUint32(16,10,true);data.set([0,0,0,157,1,42,width&255,width>>8,height&255,height>>8],20);return data;}
 function mocks({allowed=true,valid=true,attachError=false}={}){
   const calls=[];return {calls,client:{auth:{getUser:async token=>{calls.push(['getUser',token]);return {data:{user:valid?{id:ID}:null},error:null};}},rpc:async(name,args)=>{calls.push([name,args]);return name==='is_admin'?{data:allowed}:name==='admin_attach_media'?{data:{id:ID},error:typeof attachError==='object'?attachError:attachError?{code:'23503',message:'Not found'}:null}:{data:{bucket:'listing-media',path:ID+'/remove.webp'}};},storage:{from:bucket=>({upload:async(path,data,options)=>{calls.push(['upload',bucket,path,data.byteLength,options]);return {data:{path}};},remove:async(paths)=>{calls.push(['remove',bucket,paths]);return {data:[]};}})}}};

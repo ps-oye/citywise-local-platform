@@ -1,5 +1,5 @@
 # CODEX MASTER PROMPT
-# Project: Rawatbhata Local Discovery Platform
+# Project: ShaharOne — Multi-city Local Discovery Platform
 # Build a Complete, Production-Ready, Lightweight Hyperlocal Website
 
 ## 1. ROLE AND OBJECTIVE
@@ -33,6 +33,18 @@ It should become a complete digital ecosystem where residents and visitors can:
 - Find useful local information.
 
 The website must support multiple cities in the future, although Rawatbhata will be the initial city.
+
+### Approved umbrella brand and routing
+
+The umbrella brand is **ShaharOne**, with production origin **https://shaharone.in**. Reuse this repository, application, existing Cloudflare Pages project and the existing Supabase project/Auth/Storage configuration, with one primary branch `main`. Local testing remains isolated; do not create additional hosted projects or staging sites. With exactly one enabled city, `/` temporarily redirects to that city's homepage (currently `/rawatbhata/`) and city-selection controls are hidden. Multiple enabled cities automatically restore city selection at `/`. Keep locality filtering, city-aware routes, record identities, existing data and media paths. Public absolute URLs derive from environment configuration. Hosted settings, credentials, migration application and deployments require deliberate operator review; do not deploy without explicit approval.
+
+### Approved delivery and tracking update
+
+Food checkout is merchant-managed delivery only. Require a reasonably complete multiline delivery address and optional delivery instructions in the confirmation popup; validate on both client and server. Delivery text is used transiently to build the merchant's encoded WhatsApp message and is not stored in history/analytics, browser storage, internal URLs or logs. An opaque server-keyed fingerprint supports idempotent retries. Preserve authoritative prices, product/merchant eligibility, verified contact, demo protections and closure rules. New references use `SO-`; existing `RB-` records remain valid. Retain pickup/general enquiry options outside the food workflow and normal hotel/gym/service contact actions.
+
+Admin Order Tracking must provide bounded searchable merchant selection (including archived/disabled history), date filters, initiation counts, estimated totals/average, item summaries, references/timestamps/status and sortable merchant aggregates. Bind history to stable UUIDs. Never describe initiated/handoff activity as confirmed orders or estimated value as actual revenue.
+
+The public footer Contact Us section displays only the clickable email **ShaharOneRawatbhata@gmail.com**. No phone, physical address, form or additional backend is required.
 
 **The application must be fully data-driven. Adding a new merchant, category, service provider or attraction through the admin dashboard should automatically create its public listing and detail page without writing additional code.**
 
@@ -140,7 +152,7 @@ Create an original visual identity suitable for a town-wide local discovery plat
 - Tasteful transitions
 - Responsive promotional banners
 
-Use a configurable brand name. For the demo, use "Rawatbhata One" as the working title.
+Use a configurable brand name. The umbrella brand is "ShaharOne"; Rawatbhata is the first supported city.
 
 All colors, typography, spacing and border radii should be configurable using CSS design tokens.
 
@@ -597,13 +609,13 @@ The confirmation modal must show:
 - Quantities
 - Individual prices
 - Estimated total
-- Delivery/pickup preference, if supported
+- Mandatory delivery address for food; optional fulfilment preferences only outside food checkout
 - Optional customer instructions
 - Notice that final prices and availability are confirmed by the merchant
 
 Step 4: Customer reviews the order.
 
-Step 5: Customer clicks "Confirm & Open WhatsApp".
+Step 5: Food customers enter a valid delivery address and click "Confirm & Order on WhatsApp".
 
 Step 6: Create a checkout initiation record through a protected backend endpoint.
 
@@ -617,16 +629,18 @@ Hello Demo Sweet Shop,
 
 I would like to enquire about the following order:
 
-Order Ref: RB-XXXXXX
+Order Ref: SO-XXXXXX
 
 1. Kaju Katli (500 g) x 1 — Rs. 450
 2. Gulab Jamun (1 box) x 2 — Rs. 360
 
 Estimated Total: Rs. 810
 
-Please confirm availability, final amount and delivery/pickup options.
+Delivery Address: House 25, Example Colony, Rawatbhata.
 
-Sent via Rawatbhata One.
+Please confirm availability, final amount, delivery charges and estimated delivery time.
+
+Sent via ShaharOne.
 
 Use the merchant's configured WhatsApp number.
 
@@ -1802,4 +1816,4 @@ Use reasonable defaults where details are unspecified. Avoid unnecessary clarifi
 
 Prioritize a clean, functional, secure, attractive application over excessive engineering.
 
-**Final goal: A working, lightweight, responsive, production-oriented Rawatbhata Local Discovery Platform with one admin dashboard, dynamic category and merchant pages, sponsored advertisements, Excel catalog management, locality discovery, business timing management and WhatsApp-based checkout.**
+**Final goal: A working, lightweight, responsive, production-oriented ShaharOne local discovery platform, starting in Rawatbhata, with one admin dashboard, dynamic city/category and merchant pages, sponsored advertisements, Excel catalog management, locality discovery, business timing management and WhatsApp-based checkout.**

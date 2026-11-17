@@ -1,5 +1,7 @@
 # Phase 7 — Final QA and cleanup
 
+> Historical phase record. Current one-hosted-backend configuration and delivery behavior are documented in [deployment guide](deployment-guide.md), [delivery update report](delivery-update-report.md) and [release/backup/rollback guide](delivery-release-guide.md). Earlier separate-environment/preview-deployment instructions are retired.
+
 Completed 14 November 2026 (Asia/Kolkata), following verification started on 13 November. Scope is the existing vanilla JavaScript/Supabase/Cloudflare application. Production launch and destructive database changes remain separate. Final hosted/performance results are recorded below.
 
 ## Fixes

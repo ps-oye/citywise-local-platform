@@ -8,10 +8,11 @@ import { createMerchantRepository } from './data/merchant-repository.js';
 import { createCartStore } from './services/cart-store.js';
 import { createCheckoutService } from './services/checkout-service.js';
 import './styles/merchant.css';
+import './styles/platform.css';
 import {createAnalytics} from './services/analytics.js';
 
 const config = readEnvironment(import.meta.env);
-applyBrand(config, 'Your town, rediscovered');
+applyBrand(config, 'Your city, a little closer');
 let client = null;
 if (config.configured) {
   const { createSupabaseClient } = await import('./data/supabase-client.js');

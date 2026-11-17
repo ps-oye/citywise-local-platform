@@ -2,6 +2,7 @@ import { normalizeSearch,isUuid } from './discovery.js';
 
 export const CATALOG_SORTS = new Set(['featured','name','price_asc','price_desc']);
 export const DIETARY = new Set(['','vegetarian','non_vegetarian','egg','not_applicable']);
+export const ORDERING_UNAVAILABLE_MESSAGE='WhatsApp ordering is temporarily unavailable. You can still browse products and contact the business.';
 export function merchantPath(item,citySlug) {
   const city = citySlug || item.city?.slug;
   if(!city || !item.category_slug || !item.slug)return null;

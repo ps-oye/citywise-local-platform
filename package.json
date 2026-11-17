@@ -1,5 +1,5 @@
 {
-  "name": "rawatbhata-one",
+  "name": "shaharone",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -19,10 +19,8 @@
     "pages:functions": "wrangler pages functions build functions --outdir .wrangler/phase-6-build --compatibility-date 2026-11-13 --compatibility-flags nodejs_compat",
     "pages:build": "npm run build && npm run pages:functions",
     "deploy:check": "node scripts/check-deployment.mjs",
-    "qa:preview": "node scripts/qa-preview.mjs",
     "performance": "node scripts/measure-performance.mjs",
-    "production:check": "node scripts/check-deployment.mjs --production",
-    "deploy:preview": "npm run verify && npm run pages:functions && node scripts/deploy-preview.mjs"
+    "production:check": "node scripts/check-deployment.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.119.0",

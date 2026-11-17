@@ -1,10 +1,22 @@
 # Admin dashboard — through Phase 7
 
+The platform is **ShaharOne**, using one existing hosted backend. Choose a city in the dashboard to manage its listings, products, advertisements, rankings and hours. Public `/` automatically opens `/rawatbhata/` while it is the only enabled city; multiple enabled cities restore city selection. See the [current delivery release guide](delivery-release-guide.md) for the pending migration, one configuration and deployment steps. Preserve the existing Auth user and credentials.
+
 Open `/admin/` while the local Vite server is running. Sign in with the email/password of the manually created Supabase Auth account. Only the active UID in `private.admin_users` is authorized. There is no signup, merchant login or customer login.
 
-## First account and development setup
+## Login while the delivery update is pending
 
-See [Phase 4 setup](phase-4-setup.md) for migration and environment steps. In Supabase Dashboard → Authentication → Users, create the administrator with your own email and a strong password, without sending an invitation. Keep the password private. Copy the existing user's UID into [the guarded provisioning script](../supabase/provision-admin.sql) and execute it from a trusted SQL editor. It refuses a missing Auth user or a different existing administrator. This operator script is neither a migration nor a seed.
+Admin login and existing management remain available before migration 10. When the new delivery context function is missing, the app uses the existing database-authorized admin context and shows a pending-update notice. Existing category/location saves and city-wide analytics keep using their supported operations. Existing merchant pickup/delivery settings are retained when saving other details; no automatic conversion is performed against the old schema.
+
+Food-category capability controls and merchant-wise tracking become available after the reviewed migration is applied and the page is reloaded. A missing database function now gives an update message instead of incorrectly reporting a connection failure. Authorization/network errors never trigger the compatibility fallback or bypass the admin allowlist.
+
+If your local server was running the older code, stop it with Ctrl+C, run `npm.cmd run dev` again, and reload `/admin/` (Ctrl+Shift+R if necessary). Keep the existing login credentials. No password reset, database reset, new user or migration application is required just to restore existing admin access. See [the fix report](admin-login-fix.md) and [reviewed release instructions](delivery-release-guide.md) before enabling new database-dependent features.
+
+The merchant editor's **View public page** action now also works before migration 10. Public HTML and browser navigation use a guarded read compatibility path, preserving existing catalogs, images, contacts and hours. Only the new checkout remains unavailable until its required update is present. See [merchant-page troubleshooting](merchant-page-fix.md); do not run seeds to repair this missing-function error.
+
+## Existing account and initial setup
+
+The existing hosted project already has its administrator: retain that Auth user, private allowlist and password. No account provisioning is required for this update. For a genuinely new installation only, [Phase 4 setup](phase-4-setup.md) records the original guarded provisioning process; do not replay it to change the current administrator. Keep passwords private. Use the [current deployment guide](deployment-guide.md) for configuration.
 
 Disable public signup and anonymous sign-ins in the hosted project's Auth settings; keep email/password authentication enabled. Local TOML does not configure a hosted project automatically. A confirmed email or Dashboard auto-confirmed manually created user is needed for password login.
 
@@ -25,6 +37,14 @@ Publication, enablement, sponsorship, featuring and operational closure remain i
 Archive removes a merchant from discovery and retains its catalog, images and private enquiry history. Restore returns it to a disabled draft. There is no hard-delete merchant control. Existing merchant city and sample identity are fixed. Changing cities exits the current entity editor; a merchant from another city cannot be edited using the wrong locality choices.
 
 Fictional samples remain labelled; their contact actions and checkout are disabled. Do not add real-looking unverified contacts or fabricated coordinates to samples. Homepage placements survive normal category edits; remove an active featured category placement before removing that category membership.
+
+## Enabling food checkout
+
+The checkout checkbox is intentionally unavailable for fictional samples, non-catalog listing types or missing/unverified WhatsApp contacts. Samples retain their data and cannot be relabelled automatically as real businesses. For an eligible real merchant, enter its actual international-format WhatsApp number, verify it with the business, then enable WhatsApp catalog checkout and save. Publish and enable the listing and provide valid available products before a customer can initiate checkout.
+
+Restaurants and categories marked Food catalog (including inherited parent capabilities) use merchant-managed delivery. The category editor can manage that capability for commerce shops such as sweet shops. Food customers see no pickup/enquiry-only selector. Admin pickup/delivery switches are hidden for food; other commerce preferences and informational listing contacts remain available. Closure and Allow enquiries while closed settings continue to apply, with clear customer explanations.
+
+Customers must enter a complete delivery address in the confirmation dialog. The address and optional delivery instructions are sent only into the necessary WhatsApp message and are not persisted as customer text. Confirmation records an initiation/link preparation, never a confirmed or paid order. See [release and privacy details](delivery-release-guide.md).
 
 ## Photographs
 
@@ -76,9 +96,13 @@ Choose Products & imports, then select a commerce/restaurant merchant in the cur
 
 Import files provides Excel/CSV templates, worksheet selection, insert/update and price-only modes, validation, paged before/after previews and explicit confirmation. Every invalid row blocks the import. Missing products are preserved, archived SKUs require explicit restoration, and a price-only file cannot alter product details or create new SKUs. A failed application rolls back every product change and retains an error report. Import history exposes prepared/applied/failed results and downloadable formula-safe CSV reports.
 
-Read [the catalog guide](catalog-guide.md) before the first upload, particularly the difference between omitted columns and blank cells, SKU text formatting, original-price constraints and file limits. [Phase 5 setup](phase-5-setup.md) describes the additive migration; the configured development project already has it.
+Read [the catalog guide](catalog-guide.md) before the first upload, particularly the difference between omitted columns and blank cells, SKU text formatting, original-price constraints and file limits. [Phase 5 setup](phase-5-setup.md) describes the additive migration; the existing hosted project retains that catalog setup.
 
 ## Enquiries and analytics
+
+Order Tracking includes **Merchant/shop** (All Merchants or one UUID-backed shop), date filters, checkout initiation count, estimated total/average, recent item snapshots/references/timestamps/status and sortable merchant summaries. Search/page through merchant options if needed; archived/disabled merchants with history remain selectable. Summary/activity tables page independently. Renaming a merchant updates its displayed name while retaining the recorded name/reference and history.
+
+The merchant filter applies to Order Tracking; discovery views and promotions remain city-wide and are labelled accordingly. Delivery addresses/instructions are not stored or displayed in tracking. Estimated value is not actual revenue, and Link prepared does not prove a WhatsApp message was sent.
 
 Choose Enquiries & analytics for the selected city. Set an inclusive date range of up to 90 days, or choose the 7/30/90-day presets. Dates/trends use the city's timezone. Demo activity is excluded by default; enable its checkbox deliberately to inspect fictional sample usage.
 
@@ -86,6 +110,6 @@ Cards show reported views/contact clicks, qualified visible promotion impression
 
 The overview adds the last 30 days of non-demo views and WhatsApp link clicks. Zero is a real empty state, not a populated demo chart. Report controls lock during loading, and city switching clears the prior workspace before another action can use it. The server rechecks authorization on every report request.
 
-Open the [development preview](https://de486908.rawatbhata-one.pages.dev/admin/) with the existing administrator email/password. Enter the password only in your own browser. The preview, SEO and analytics workflow are described in [Phase 6 guide](phase-6-guide.md). [Phase 7 results](phase-7-report.md) records final QA and fixes. Production launch remains a separate action.
+Open `/admin/` on the configured ShaharOne domain with the existing administrator email/password. Keep the password private. The [current deployment guide](deployment-guide.md) and [delivery release checklist](delivery-release-guide.md) supersede historical phase hosting instructions. Deploy only after the pending migration is reviewed/applied and release is approved.
 
 Confirmations apply to the workspace where they were opened. If you navigate away with browser history before accepting, the old dialog cannot submit that page's change. Return to the intended merchant before starting another action. The database still verifies administrator authorization on every write.

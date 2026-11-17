@@ -1,4 +1,5 @@
 import {LISTING_TYPES,OFFERING_KINDS,slugify,moneyToMinor} from '../../domain/admin.js';
+import {foodCatalogType} from '../../domain/delivery.js';
 import {e,pretty,field,select,check,badge,heading,empty,button,formActions,formValues,dirtyGuard} from '../ui.js';
 
 export async function merchantsPage(app,id) {
@@ -47,14 +48,23 @@ function editor(app,record,isNew) {
     wrapper.dataset.key=key;offeringList.append(wrapper);wrapper.querySelector('[data-remove-offering]')?.addEventListener('click',()=>{wrapper.remove();app.setDirty(true);});
   }
   record.offerings.forEach(addOffering);attributes();
-  function relevant() {const type=form.elements.listing_type.value;form.querySelector('[data-service-areas]').hidden=type!=='SERVICE_PROVIDER';form.querySelector('[data-offerings]').hidden=!OFFERING_KINDS[type];}
+  function relevant() {
+    const type=form.elements.listing_type.value,ids=[...form.querySelectorAll('[name=category_ids]:checked')].map(input=>input.value);
+    const food=foodCatalogType(type,ids,context.categories),demo=isNew?form.elements.is_demo.checked:record.is_demo;
+    form.querySelector('[data-service-areas]').hidden=type!=='SERVICE_PROVIDER';form.querySelector('[data-offerings]').hidden=!OFFERING_KINDS[type];
+    for(const key of ['pickup_available','delivery_available'])form.elements[key].closest('label').hidden=food&&context.delivery_tracking_ready!==false;
+    form.elements.checkout_enabled.disabled=demo||!['COMMERCE','RESTAURANT'].includes(type)||!form.elements.contact_verified.checked||!/^\+[1-9][0-9]{7,14}$/.test(form.elements.whatsapp_number.value.trim());
+    let help=form.querySelector('[data-checkout-eligibility]');if(!help){help=document.createElement('p');help.className='admin-helper';help.dataset.checkoutEligibility='';form.elements.checkout_enabled.closest('fieldset').append(help);}
+    help.textContent=demo?'Fictional sample merchants cannot receive real checkout enquiries. Create a real merchant with its verified business contact.':form.elements.checkout_enabled.disabled?'Add a valid WhatsApp number, verify it with the business, and select a commerce or restaurant listing type to enable checkout.':context.delivery_tracking_ready===false?'Delivery checkout with a mandatory address requires reviewed migration 10. Existing checkout preferences are retained.':food?'Food checkout uses merchant-managed delivery only. Customers must enter an address. Publish and enable this merchant and provide available products before customers can check out.':'Checkout is available after publication with available products. Other catalog fulfilment settings remain configurable.';
+  }
   relevant();form.elements.listing_type.onchange=relevant;
-  form.querySelectorAll('[name=category_ids]').forEach(input=>input.addEventListener('change',attributes));
+  form.querySelectorAll('[name=category_ids]').forEach(input=>input.addEventListener('change',()=>{attributes();relevant();}));
+  form.elements.contact_verified.addEventListener('change',relevant);
   form.querySelector('[data-action="add-offering"]').onclick=()=>{addOffering();app.setDirty(true);};
   form.elements.name.addEventListener('input',()=>{if(isNew&&!form.elements.slug.dataset.edited)form.elements.slug.value=slugify(form.elements.name.value);});
   form.elements.slug.addEventListener('input',()=>{form.elements.slug.dataset.edited='true';});
-  for(const name of ['phone_number','whatsapp_number'])form.elements[name].addEventListener('input',()=>{form.elements.contact_verified.checked=false;form.elements.checkout_enabled.checked=false;});
-  if(isNew)form.elements.is_demo.onchange=()=>{const demo=form.elements.is_demo.checked;for(const name of ['phone_number','whatsapp_number']){form.elements[name].readOnly=demo;if(demo)form.elements[name].value='';}for(const name of ['contact_verified','checkout_enabled']){form.elements[name].disabled=demo;if(demo)form.elements[name].checked=false;}};
+  for(const name of ['phone_number','whatsapp_number'])form.elements[name].addEventListener('input',()=>{form.elements.contact_verified.checked=false;form.elements.checkout_enabled.checked=false;relevant();});
+  if(isNew)form.elements.is_demo.onchange=()=>{const demo=form.elements.is_demo.checked;for(const name of ['phone_number','whatsapp_number']){form.elements[name].readOnly=demo;if(demo)form.elements[name].value='';}for(const name of ['contact_verified','checkout_enabled']){form.elements[name].disabled=demo;if(demo)form.elements[name].checked=false;}relevant();};
   form.onsubmit=event=>{
     event.preventDefault();app.run(form.querySelector('[type=submit]'),async()=>{
       const v=formValues(form),demo=isNew?v.checked('is_demo'):record.is_demo;
@@ -65,6 +75,7 @@ function editor(app,record,isNew) {
         actions:Object.fromEntries(['checkout_enabled','enquiries_while_closed','pickup_available','delivery_available','directions_enabled'].map(key=>[key,v.checked(key)])),attributes:[],offerings:[]};
       for(const name of ['name','slug','timezone','short_description','description','locality_id','phone_number','whatsapp_number','address','latitude','longitude','maps_place_id'])data[name]=v.get(name);
       if(demo){data.phone_number='';data.whatsapp_number='';data.actions.checkout_enabled=false;}
+      if(context.delivery_tracking_ready!==false&&foodCatalogType(data.listing_type,data.category_ids,context.categories)){data.actions.pickup_available=false;data.actions.delivery_available=true;}
       if(data.contact_verified&&!data.phone_number&&!data.whatsapp_number)throw new Error('Provide a contact number before marking it verified.');
       for(const input of attributeRoot.querySelectorAll('[data-attribute]')){
         const value=input.multiple?[...input.selectedOptions].map(o=>o.value):input.value.trim();if(value===''||Array.isArray(value)&&!value.length)continue;

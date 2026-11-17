@@ -15,10 +15,10 @@ const shell='<!doctype html><html lang="en-IN"><head><title>Shell</title><meta n
 const env={VITE_SUPABASE_URL:'https://project.supabase.co',VITE_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_fixture'};
 const makeContext=(path,extra={})=>({request:new Request('https://example.com'+path),env:{...env,...extra,ASSETS:{fetch:async()=>new Response(shell)}}});
 
-test('production indexing requires an explicit canonical origin and the matching deployment environment',()=>{
+test('production indexing requires an explicit canonical origin and matching request host',()=>{
   const configured={SITE_URL:'https://example.com',SITE_INDEXING_ENABLED:'true',DEPLOYMENT_ENV:'production'};
   assert.equal(deploymentSettings(configured,'https://example.com/town').indexable,true);
-  for(const altered of [{...configured,DEPLOYMENT_ENV:'preview'},{...configured,SITE_URL:''},{...configured,SITE_URL:'javascript:alert(1)'},{...configured,SITE_INDEXING_ENABLED:'false'}])assert.equal(deploymentSettings(altered,'https://example.com/town').indexable,false);
+  for(const altered of [{...configured,SITE_URL:''},{...configured,SITE_URL:'javascript:alert(1)'},{...configured,SITE_INDEXING_ENABLED:'false'}])assert.equal(deploymentSettings(altered,'https://example.com/town').indexable,false);
   assert.equal(deploymentSettings(configured,'https://branch.pages.dev/town').indexable,false);
 });
 test('metadata has canonical social fields and truthful schema without fictional reviews or offers',()=>{

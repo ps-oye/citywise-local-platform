@@ -1,15 +1,15 @@
 import test,{before,after} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile,access} from 'node:fs/promises';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import {createTestDatabase,asRole,ADMIN_ID} from '../helpers/database.js';
 let db;
 const MERCHANT='70000000-0000-4000-8000-000000000001';
 const product=n=>'71000000-0000-4000-8000-'+String(n).padStart(12,'0');
 const lines=[{product_id:product(1),quantity:2},{product_id:product(2),quantity:1}];
 const rpc=async(name,args=[],role='anon',uid=null)=>(await asRole(db,role,uid,tx=>tx.query('select public.'+name+'('+args.map((_,i)=>'$'+(i+1)).join(',')+') result',args))).rows[0].result;
-const quote=(items=lines,fulfilment='pickup')=>rpc('merchant_cart_quote',[MERCHANT,items,fulfilment]);
-const initiate=async({items=lines,token,key=randomUUID(),instructions='',fulfilment='pickup'}={})=>rpc('checkout_initiate',[MERCHANT,items,fulfilment,instructions,token||(await quote(items,fulfilment)).quote_token,key],'service_role');
+const quote=(items=lines,fulfilment='delivery')=>rpc('merchant_cart_quote',[MERCHANT,items,fulfilment]);
+const initiate=async({items=lines,token,key=randomUUID(),instructions='',fulfilment='pickup'}={})=>rpc('checkout_initiate_delivery',[MERCHANT,items,token||(await quote(items,fulfilment)).quote_token,key,createHash('sha256').update(instructions).digest('hex')],'service_role');
 before(async()=>{db=await createTestDatabase();await db.exec(await readFile('supabase/seeds/discovery-demo.sql','utf8'));await db.exec(await readFile('tests/fixtures/merchant-checkout.sql','utf8'));});
 after(async()=>{if(db)await db.close();});
 
@@ -58,7 +58,7 @@ test('cart quotes use current prices and reject foreign, unavailable, duplicate 
 });
 test('service checkout snapshots authoritative amounts and units, prepares handoff and retries idempotently',async()=>{
   const key=randomUUID(),token=(await quote()).quote_token;
-  const result=await initiate({key,token});assert.equal(result.status,'initiated');assert.match(result.receipt.reference,/^RB-[A-Z0-9]{16}$/);assert.equal(result.receipt.total_minor,4000);
+  const result=await initiate({key,token});assert.equal(result.status,'initiated');assert.match(result.receipt.reference,/^SO-[A-Z0-9]{16}$/);assert.equal(result.receipt.total_minor,4000);
   const again=await initiate({key,token});assert.equal(again.receipt.reference,result.receipt.reference);
   assert.equal((await db.query('select count(*)::int total from private.checkout_intents where idempotency_key=$1',[key])).rows[0].total,1);
   assert.equal(await rpc('checkout_mark_handoff',[key,result.request_hash],'service_role'),true);

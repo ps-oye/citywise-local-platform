@@ -16,7 +16,7 @@ async function admin(page){
 }
 
 test('search discards previous-text options immediately and pending suggestions cannot reopen after blur',async({page})=>{
-  await page.goto('/');await expect(page.locator('[data-carousel-pause]')).toBeVisible();
+  await page.goto('/rawatbhata/');await expect(page.locator('[data-carousel-pause]')).toBeVisible();
   const input=page.getByRole('combobox',{name:'Search all local places',exact:true});
   await input.fill('Kaju Katli');
   await expect(page.locator('.header-search [role=option]').first()).toContainText('Sample Kaju Katli');
@@ -37,9 +37,9 @@ test('search discards previous-text options immediately and pending suggestions 
   }finally{release.resolve();}
 });
 
-test('changing fulfilment invalidates a delayed review before it can open an inconsistent confirmation',async({page})=>{
-  await page.goto(merchantPath);await expect(page.locator('[data-merchant-ready]')).toBeVisible();
-  await page.getByRole('button',{name:'Add QA Vegetable Thali to cart',exact:true}).click();
+test('non-food fulfilment changes invalidates a delayed review before it can open an inconsistent confirmation',async({page})=>{
+  await page.goto('/qa-town/shopping/qa-test-store');await expect(page.locator('[data-merchant-ready]')).toBeVisible();
+  await page.getByRole('button',{name:'Add QA Notebook to cart',exact:true}).click();
   const arrived=deferred(),release=deferred(),preferences=[];
   await page.route(api+'merchant_cart_quote',async route=>{
     const preference=route.request().postDataJSON().p_fulfilment;preferences.push(preference);
@@ -103,7 +103,7 @@ test('every demo category and published demo merchant has meaningful canonical H
     for(const item of result.items){
       expect(ids.has(item.id)).toBe(false);ids.add(item.id);expect(item.is_demo).toBe(true);
       const path='/rawatbhata/'+item.category_slug+'/'+item.slug,page=await request.get(path),html=await page.text();
-      expect(page.status(),path).toBe(200);expect(html).toContain('rel="canonical" href="http://127.0.0.1:5173'+path+'"');
+      expect(page.status(),path).toBe(200);expect(html).toContain('rel="canonical" href="'+new URL(page.url()).origin+path+'"');
       expect(html).toMatch(/Contact &(?:amp;)? visiting information/);expect(html).not.toMatch(/href="(?:https:\/\/wa\.me\/|tel:)/);
     }
     more=result.has_more;offset=result.next_offset;expect(offset).toBeLessThan(100);

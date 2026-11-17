@@ -12,6 +12,8 @@ const trustedKey='server_only_phase3_fixture_key';
 // Isolated fake Auth transport only. Every privilege check still executes the real SQL/RLS.
 const users=[{id:ADMIN_ID,email:'admin@example.test'},{id:OTHER_ID,email:'viewer@example.test'}];
 const accessTokens=new Map(),refreshTokens=new Map(),objects=new Map(),signedTokens=new Map();
+let deliverySchemaAvailable=true;
+const deliveryFunctions=new Set(['merchant_detail_checkout','merchant_is_food','admin_context_checkout','admin_save_taxonomy_checkout','admin_checkout_merchants','admin_checkout_tracking','checkout_initiate_delivery']);
 function authSession(user) {
   const token=[Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url'),Buffer.from(JSON.stringify({sub:user.id,role:'authenticated',exp:Math.floor(Date.now()/1000)+3600,session_id:randomUUID()})).toString('base64url'),'isolated_fixture_signature'].join('.');
   const refresh=randomUUID();accessTokens.set(token,user);refreshTokens.set(refresh,user);
@@ -24,11 +26,14 @@ const definitions = {
   discovery_listings: { args: ['p_city_id','p_category_id','p_locality_id','p_query','p_sort','p_offset','p_limit','p_facets'], defaults: [null,null,null,'','recommended',0,12,{}] },
   discovery_preview: { args: ['p_listing_id'], defaults: [null] },
   merchant_detail:{args:['p_city_slug','p_category_slug','p_listing_slug'],defaults:[null,null,null]},
+  merchant_detail_checkout:{args:['p_city_slug','p_category_slug','p_listing_slug'],defaults:[null,null,null]},
+  merchant_is_food:{args:['p_id'],defaults:[null]},
   merchant_products:{args:['p_merchant_id','p_query','p_category_id','p_dietary','p_available_only','p_sort','p_offset','p_limit'],defaults:[null,'',null,'',false,'featured',0,12]},
   merchant_cart_quote:{args:['p_merchant_id','p_items','p_fulfilment'],defaults:[null,[],'enquiry']},
   merchant_availability:{args:['p_listing_id','p_at'],defaults:[null,new Date().toISOString()]},
   checkout_consume_limit:{args:['p_client_hash','p_merchant_id'],defaults:[null,null],service:true},
   checkout_initiate:{args:['p_merchant_id','p_items','p_fulfilment','p_instructions','p_quote_token','p_idempotency_key'],defaults:[null,[],'enquiry','','',null],service:true},
+  checkout_initiate_delivery:{args:['p_merchant_id','p_items','p_quote_token','p_idempotency_key','p_delivery_fingerprint'],defaults:[null,[],'',null,null],service:true},
   checkout_mark_handoff:{args:['p_idempotency_key','p_request_hash'],defaults:[null,null],service:true},
   is_admin:{args:[],defaults:[]},
   seo_sitemap_index:{args:[],defaults:[]},
@@ -42,7 +47,7 @@ for(const fn of adminFunctions)definitions[fn.proname]={args:fn.proargnames,defa
 const server = createServer(async (request,response) => {
   const headers = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': ['http://127.0.0.1:5173','http://127.0.0.1:4173','http://127.0.0.1:8788'].includes(request.headers.origin) ? request.headers.origin : 'http://127.0.0.1:5173',
+    'Access-Control-Allow-Origin': [process.env.FIXTURE_APP_ORIGIN||'http://127.0.0.1:5173','http://127.0.0.1:4173','http://127.0.0.1:8788'].includes(request.headers.origin) ? request.headers.origin : (process.env.FIXTURE_APP_ORIGIN||'http://127.0.0.1:5173'),
     'Access-Control-Allow-Headers': request.headers['access-control-request-headers'] || 'apikey,authorization,x-client-info,content-type,accept,prefer,content-profile,accept-profile',
     'Access-Control-Allow-Methods': 'POST,GET,DELETE,OPTIONS',
     'Cache-Control': 'no-store',
@@ -64,15 +69,34 @@ const server = createServer(async (request,response) => {
     }catch{response.writeHead(400,headers);response.end('{}');}return;
   }
   if(request.url==='/health'){response.writeHead(200,headers);response.end('{"ready":true}');return;}
+  if(url.pathname==='/rest/v1/cities'&&request.method==='GET'){
+    try{
+      const offset=Number(url.searchParams.get('offset')||0),limit=Number(url.searchParams.get('limit')||25);
+      if(!Number.isInteger(offset)||offset<0||!Number.isInteger(limit)||limit<1||limit>25)throw new Error('Invalid city page');
+      const pattern=url.searchParams.get('name');
+      if(pattern&&!pattern.startsWith('ilike.'))throw new Error('Invalid city filter');
+      const rows=await asRole(db,'anon',null,tx=>tx.query('select id,name,slug,state,country_code,timezone,is_default from public.cities where enabled and ($1::text is null or name ilike $1) order by is_default desc,name,id offset $2 limit $3',[pattern?.slice(6)||null,offset,limit]));
+      response.writeHead(200,headers);response.end(JSON.stringify(rows.rows));
+    }catch{response.writeHead(400,headers);response.end('{"code":"FIXTURE_ERROR"}');}return;
+  }
   if(request.url?.startsWith('/__test/')){
     if(request.headers['x-fixture-control']!=='phase3_isolated_control'){response.writeHead(403,headers);response.end('{}');return;}
     try{
       let result;
-      if(request.url==='/__test/checkouts'&&request.method==='GET')result=(await db.query('select reference,idempotency_key,state,total_minor,merchant_id from private.checkout_intents order by created_at')).rows;
+      if(request.url==='/__test/delivery-schema'&&request.method==='POST'){
+        const input=await jsonBody(request,1024);if(typeof input.available!=='boolean')throw new Error('Invalid fixture schema capability');
+        deliverySchemaAvailable=input.available;result={ok:true};
+      }
+      else if(request.url==='/__test/checkouts'&&request.method==='GET')result=(await db.query('select reference,idempotency_key,state,total_minor,merchant_id,instructions,delivery_fingerprint from private.checkout_intents order by created_at')).rows;
+      else if(request.url==='/__test/merchant-state'&&request.method==='POST'){
+        const input=await jsonBody(request,1024);if(!['70000000-0000-4000-8000-000000000001','70000000-0000-4000-8000-000000000002'].includes(input.id)||typeof input.enabled!=='boolean'||typeof input.name!=='string'||input.name.length>180)throw new Error('Invalid fixture state');
+        await db.query("update public.listings set name=$2,enabled=$3,publication_status=case when $3 then 'published'::public.publication_status else 'archived'::public.publication_status end,archived_at=case when $3 then null else now() end where id=$1",[input.id,input.name,input.enabled]);result={ok:true};
+      }
       else if(url.pathname==='/__test/events'&&request.method==='GET')result=(await db.query('select event_key,event_type,listing_id,advertisement_id,created_at from private.analytics_events order by created_at,id')).rows;
       else if(url.pathname==='/__test/reset-event-limits'&&request.method==='POST'){await db.exec('delete from private.analytics_rate_limits');result={ok:true};}
       else if(request.url==='/__test/reset-limits'&&request.method==='POST'){await db.exec('delete from private.checkout_rate_limits');result={ok:true};}
       else if(request.url==='/__test/admin-access'&&request.method==='POST'){const input=await jsonBody(request,1024);await db.query('update private.admin_users set active=$1',[input.active===true]);result={ok:true};}
+      else if(request.url==='/__test/city-enabled'&&request.method==='POST'){const input=await jsonBody(request,1024);if(!/^[a-f0-9-]{36}$/.test(input.id)||typeof input.enabled!=='boolean')throw new Error('Invalid fixture city');await db.query('update public.cities set enabled=$2 where id=$1',[input.id,input.enabled]);result={ok:true};}
       else if(request.url==='/__test/media'&&request.method==='GET')result=(await db.query('select name,bucket_id,owner_id from storage.objects')).rows;
       else if(/^\/__test\/products\/[a-f0-9-]{36}$/.test(request.url)&&request.method==='POST'){
         let body='';for await(const chunk of request){body+=chunk;if(body.length>1024)throw new Error('Too large');}
@@ -122,7 +146,7 @@ const server = createServer(async (request,response) => {
   }
   const name=request.url?.split('?')[0].split('/').at(-1);
   const definition=definitions[name];
-  if(request.method!=='POST' || !request.url.startsWith('/rest/v1/rpc/') || !definition){response.writeHead(404,headers);response.end('{"code":"PGRST202","message":"Fixture endpoint not found"}');return;}
+  if(request.method!=='POST' || !request.url.startsWith('/rest/v1/rpc/') || !definition||!deliverySchemaAvailable&&deliveryFunctions.has(name)){response.writeHead(404,headers);response.end('{"code":"PGRST202","message":"Fixture endpoint not found"}');return;}
   if(definition.service&&request.headers.apikey!==trustedKey){response.writeHead(403,headers);response.end('{"code":"42501","message":"Permission denied"}');return;}
   try {
     const input=await jsonBody(request,name==='admin_prepare_import'?2*1024*1024:100000);

@@ -18,7 +18,7 @@ test('password login verifies the single-admin UID, isolates its session and sig
   await page.getByLabel('Password',{exact:true}).fill('Isolated-fixture-pass-42!');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.locator('.admin-stat')).toHaveCount(6);
   expect(await page.evaluate(()=>localStorage.getItem('rawatbhata-one-admin-session'))).toBeNull();expect(await page.evaluate(()=>Boolean(sessionStorage.getItem('rawatbhata-one-admin-session')))).toBe(true);
   await page.reload();await expect(page.locator('.admin-stat')).toHaveCount(6);
-  const authHeaders=[];page.on('request',request=>{if(request.url().includes('/rest/v1/rpc/discovery_'))authHeaders.push(request.headers().authorization||'');});await page.goto('/');await expect(page.locator('.category-tile')).toHaveCount(15);expect(authHeaders.every(value=>!value.includes('isolated_fixture_signature'))).toBe(true);
+  const authHeaders=[];page.on('request',request=>{if(request.url().includes('/rest/v1/rpc/discovery_'))authHeaders.push(request.headers().authorization||'');});await page.goto('/rawatbhata/');await expect(page.locator('.category-tile')).toHaveCount(15);expect(authHeaders.every(value=>!value.includes('isolated_fixture_signature'))).toBe(true);
   await page.goto('/admin/');await expect(page.locator('.admin-stat')).toHaveCount(6);await page.getByRole('button',{name:'Sign out'}).click();await expect(page.getByRole('heading',{name:'Sign in to your workspace'})).toBeVisible();expect(await page.evaluate(()=>sessionStorage.getItem('rawatbhata-one-admin-session'))).toBeNull();expect(errors).toEqual([]);
 });
 test('merchant creation, publication, edits and archiving update the public page',async({page})=>{

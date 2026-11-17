@@ -1,15 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <title>ShaharOne — your city, a little closer</title>
+  <desc>Original ShaharOne brand artwork with a forest-and-gold S1 mark, local discovery card and connected location symbols.</desc>
   <rect width="1200" height="630" fill="#f4f5ed"/>
   <circle cx="1110" cy="30" r="300" fill="#e1eadb"/>
   <circle cx="1050" cy="595" r="260" fill="#e7c47e" opacity=".35"/>
-  <rect x="64" y="58" width="62" height="62" rx="18" fill="#174d42"/>
-  <text x="78" y="101" font-size="36" font-family="Georgia,serif" font-weight="700" fill="#fff">r<tspan fill="#e7c47e">1</tspan></text>
-  <text x="146" y="83" font-family="Arial,sans-serif" font-size="22" font-weight="700" fill="#174d42">Rawatbhata One</text>
-  <text x="147" y="109" font-family="Arial,sans-serif" font-size="12" letter-spacing="3" fill="#56705c">A LITTLE MORE LOCAL</text>
-  <text x="65" y="272" font-family="Arial,sans-serif" font-size="74" font-weight="700" letter-spacing="-4" fill="#203d35">Your town,</text>
-  <text x="65" y="365" font-family="Georgia,serif" font-size="80" font-style="italic" letter-spacing="-3" fill="#174d42">rediscovered.</text>
+  <g transform="translate(64 58)">
+    <rect width="64" height="64" rx="18" fill="#174d42"/>
+    <path d="M32 21c-3-3-6-4-10-4-6 0-10 3-10 8s4 7 10 8l4 1c4 1 6 3 6 7 0 5-4 8-10 8-4 0-8-1-11-4" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+    <path d="M45 18h6v30h-7V27h-5v-6z" fill="#f6c778"/>
+  </g>
+  <text x="148" y="85" font-family="Arial,sans-serif" font-size="26" font-weight="700" letter-spacing="-.5" fill="#174d42">ShaharOne</text>
+  <text x="149" y="111" font-family="Arial,sans-serif" font-size="11" letter-spacing="2.7" fill="#56705c">LOCAL DISCOVERY</text>
+  <text x="65" y="272" font-family="Arial,sans-serif" font-size="74" font-weight="700" letter-spacing="-4" fill="#203d35">Your city,</text>
+  <text x="65" y="365" font-family="Georgia,serif" font-size="78" font-style="italic" letter-spacing="-3" fill="#174d42">a little closer.</text>
   <text x="68" y="432" font-family="Arial,sans-serif" font-size="24" fill="#51685a">Food. Shops. Stays. Services.</text>
-  <text x="68" y="548" font-family="Arial,sans-serif" font-size="19" fill="#51685a">Big discoveries. Small-town heart.</text>
+  <text x="68" y="548" font-family="Arial,sans-serif" font-size="19" fill="#174d42">shaharone.in</text>
+  <path d="M744 166c-52 63-36 159 24 208" fill="none" stroke="#a8bda7" stroke-width="2" stroke-dasharray="5 9"/>
+  <g transform="translate(756 144)"><circle r="24" fill="#e7c47e"/><path d="M0 13S-10 3-10-4a10 10 0 0 1 20 0c0 7-10 17-10 17z" fill="none" stroke="#174d42" stroke-width="2"/><circle cy="-4" r="3" fill="#174d42"/></g>
   <g transform="translate(816 142) rotate(8)">
     <rect width="250" height="350" rx="28" fill="#fff" stroke="#d1ddce" stroke-width="2"/>
     <rect x="18" y="18" width="214" height="190" rx="18" fill="#174d42"/>

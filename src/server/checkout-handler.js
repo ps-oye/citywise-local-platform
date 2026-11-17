@@ -1,7 +1,8 @@
 import { isUuid } from '../domain/discovery.js';
 import { buildWhatsAppUrl } from '../domain/whatsapp.js';
+import {deliveryAddress,deliveryInstructions} from '../domain/delivery.js';
 
-const ALLOWED = new Set(['merchant_id','items','fulfilment','instructions','quote_token','idempotency_key']);
+const ALLOWED = new Set(['merchant_id','items','fulfilment','instructions','delivery_address','quote_token','idempotency_key']);
 const HEADERS = {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'no-referrer'};
 const reply=(status,body,extra={})=>new Response(JSON.stringify(body),{status,headers:{...HEADERS,...extra}});
 async function readJson(request) {
@@ -19,6 +20,13 @@ export async function clientFingerprint(identity,secret,now=new Date()) {
   const signature=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(now.toISOString().slice(0,10)+'\n'+identity));
   return [...new Uint8Array(signature)].map(value=>value.toString(16).padStart(2,'0')).join('');
 }
+export async function deliveryFingerprint(merchant,address,instructions,secret){
+  if(typeof secret!=='string'||secret.length<32)throw new TypeError('Trusted delivery validation unavailable');
+  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const value='shaharone:delivery:v1\n'+JSON.stringify([merchant,address,instructions]);
+  const signature=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(value));
+  return [...new Uint8Array(signature)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+}
 export async function handleCheckout(request,{client,identity,secret,now}={}) {
   if(request.method!=='POST')return reply(405,{code:'method_not_allowed'},{Allow:'POST'});
   const origin=new URL(request.url).origin;
@@ -32,13 +40,28 @@ export async function handleCheckout(request,{client,identity,secret,now}={}) {
     ||typeof body.instructions!=='string'||body.instructions.length>500||/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(body.instructions)
     ||body.items.some(item=>!item||typeof item!=='object'||Object.keys(item).length!==2||!isUuid(item.product_id)||!Number.isInteger(item.quantity)||item.quantity<1||item.quantity>99)
     ||new Set(body.items.map(item=>item.product_id.toLowerCase())).size!==body.items.length)return reply(400,{code:'invalid_request'});
+  let address='',instructions=body.instructions;
+  if(body.fulfilment==='delivery'){
+    const validated=deliveryAddress(body.delivery_address),note=deliveryInstructions(body.instructions);
+    if(validated.error)return reply(400,{code:'delivery_address_required'});
+    if(note.error)return reply(400,{code:'invalid_instructions'});
+    address=validated.value;instructions=note.value;
+  }else if(body.delivery_address!==undefined)return reply(400,{code:'invalid_request'});
   if(!client)return reply(503,{code:'checkout_unconfigured'});
   try{
     const hash=await clientFingerprint(identity,secret,now);
+    // A pending delivery migration permits browsing, never an old checkout path
+    // that could omit the mandatory food delivery address.
+    const capability=await client.rpc('merchant_is_food',{p_id:body.merchant_id});
+    if(capability.error||typeof capability.data!=='boolean')return reply(503,{code:'checkout_unconfigured'});
+    if(capability.data&&body.fulfilment!=='delivery')return reply(400,{code:'delivery_address_required'});
     const limit=await client.rpc('checkout_consume_limit',{p_client_hash:hash,p_merchant_id:body.merchant_id});
     if(limit.error)throw new Error('Limiter unavailable');
     if(!limit.data?.allowed)return reply(429,{code:'rate_limited'},{'Retry-After':String(limit.data?.retry_after||60)});
-    const result=await client.rpc('checkout_initiate',{
+    const result=body.fulfilment==='delivery'?await client.rpc('checkout_initiate_delivery',{
+      p_merchant_id:body.merchant_id,p_items:body.items,p_quote_token:body.quote_token,p_idempotency_key:body.idempotency_key,
+      p_delivery_fingerprint:await deliveryFingerprint(body.merchant_id,address,instructions,secret),
+    }):await client.rpc('checkout_initiate',{
       p_merchant_id:body.merchant_id,p_items:body.items,p_fulfilment:body.fulfilment,p_instructions:body.instructions,
       p_quote_token:body.quote_token,p_idempotency_key:body.idempotency_key,
     });
@@ -47,7 +70,8 @@ export async function handleCheckout(request,{client,identity,secret,now}={}) {
     if(result.data?.status==='conflict')return reply(409,{code:'idempotency_conflict'});
     if(result.data?.status==='blocked')return reply(422,{code:'checkout_blocked',quote:result.data.quote});
     if(result.data?.status!=='initiated')throw new Error('Invalid initiation response');
-    const url=buildWhatsAppUrl(result.data.receipt);
+    // Customer delivery text stays in memory and the necessary encoded WhatsApp link only.
+    const url=buildWhatsAppUrl({...result.data.receipt,...address?{delivery_address:address,instructions}: {}});
     const handoff=await client.rpc('checkout_mark_handoff',{p_idempotency_key:body.idempotency_key,p_request_hash:result.data.request_hash});
     if(handoff.error||handoff.data!==true)throw new Error('Handoff unavailable');
     return reply(200,{status:'handoff_created',reference:result.data.receipt.reference,url,receipt:result.data.receipt});

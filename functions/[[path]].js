@@ -3,9 +3,11 @@ import { PUBLIC_SECURITY_HEADERS } from '../src/config/security-headers.js';
 import { serveMerchantPage } from '../src/server/merchant-page.js';
 import {serveDiscoveryPage} from '../src/server/discovery-page.js';
 import {serveSeoEndpoint,isSeoEndpoint} from '../src/server/seo-endpoints.js';
+import {siteRedirect} from '../src/server/site-redirects.js';
 
 // Public routes use public credentials/RLS; static and administrative assets bypass this renderer.
 export async function onRequest(context) {
+  const redirect=siteRedirect(context.request,context.env);if(redirect)return redirect;
   const url = new URL(context.request.url);
   const route=parsePublicPath(url.pathname);
   if (!route&&!isSeoEndpoint(url.pathname)) return context.next();

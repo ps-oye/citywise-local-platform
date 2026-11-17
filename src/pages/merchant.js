@@ -5,14 +5,15 @@ import { applyBrand } from '../components/brand.js';
 import { icon } from '../components/icons.js';
 import { imageMarkup,emptyMarkup } from '../components/discovery-ui.js';
 import { merchantPageMarkup,productMarkup,operatingMarkup } from '../components/merchant-ui.js';
-import { catalogFilters,statusCopy,formatZonedDate } from '../domain/merchant.js';
+import { catalogFilters,statusCopy,formatZonedDate,ORDERING_UNAVAILABLE_MESSAGE } from '../domain/merchant.js';
 import { cartItems,calculateCart,reconcileCart,MAX_QUANTITY } from '../domain/cart.js';
 import {pageMetadata,applyPageMetadata} from '../domain/seo.js';
+import {deliveryAddress,deliveryInstructions,ADDRESS_MESSAGE} from '../domain/delivery.js';
 
 const reasons={demo:'This is a fictional demo. WhatsApp ordering is unavailable.',items_unavailable:'Some items are unavailable. Return to your cart and remove them before continuing.',
   closed:'This business is closed and is not accepting enquiries while closed.',disabled:'WhatsApp ordering is not enabled for this business.',unavailable:'This listing is no longer available.',
-  unverified_contact:'A verified WhatsApp contact is not available.',fulfilment_unavailable:'This fulfilment option is no longer available.',empty:'Add something to your cart first.',total_limit:'This cart exceeds the supported total. Please reduce the quantities.'};
-const errors={checkout_unconfigured:'WhatsApp enquiries are temporarily unavailable. Please try again later.',rate_limited:'Too many attempts. Please wait before trying again.',
+  delivery_address_required:ADDRESS_MESSAGE,unverified_contact:'A verified WhatsApp contact is not available.',fulfilment_unavailable:'This fulfilment option is no longer available.',empty:'Add something to your cart first.',total_limit:'This cart exceeds the supported total. Please reduce the quantities.'};
+const errors={delivery_address_required:ADDRESS_MESSAGE,invalid_instructions:'Check your delivery instructions and try again.',checkout_unconfigured:'WhatsApp enquiries are temporarily unavailable. Please try again later.',rate_limited:'Too many attempts. Please wait before trying again.',
   idempotency_conflict:'This attempt could not be reused. Review the cart and confirm again.',message_too_long:'This enquiry is too long. Please use fewer different items.'};
 
 export async function mountMerchant({main,route,repository,cart,checkout,media,config,navigate,toast,signal,bootstrap,analytics}) {
@@ -28,8 +29,10 @@ export async function mountMerchant({main,route,repository,cart,checkout,media,c
   const life=new AbortController(),productsById=new Map();
   let productsRequest,reviewRequest,statusTimer,mediaCleanup,galleryMediaCleanup;
   let filters=catalogFilters(new URL(location.href)),offset=0,productsVersion=0,reviewBusy=false,confirmBusy=false,reconciling=false;
-  let fulfilment=merchant.actions?.pickup_available?'pickup':merchant.actions?.delivery_available?'delivery':'enquiry';
-  let quote=null,instructions='',changeNotice='';
+  const foodDelivery=Boolean(merchant.food_delivery);
+  const checkoutReady=merchant.checkout_ready!==false;
+  let fulfilment=foodDelivery?'delivery':merchant.actions?.pickup_available?'pickup':merchant.actions?.delivery_available?'delivery':'enquiry';
+  let quote=null,instructions='',customerAddress='',changeNotice='';
   const commerce=['COMMERCE','RESTAURANT'].includes(merchant.listing_type);
   main.innerHTML=merchantPageMarkup(merchant);
   const root=main.querySelector('[data-merchant-root]');
@@ -48,7 +51,8 @@ export async function mountMerchant({main,route,repository,cart,checkout,media,c
     if(!commerce)return;
     const target=root.querySelector('[data-cart-content]'),items=cart.get(merchant.id),totals=calculateCart(items);
     const focused=target.contains(document.activeElement)?{action:document.activeElement.dataset.cartAction,id:document.activeElement.dataset.productId}:null;
-    target.innerHTML='<div class="cart-heading"><h2>Your cart</h2>'+(items.length?'<button class="cart-clear" type="button" data-cart-action="clear">Clear cart</button>':'')+'</div><p class="cart-merchant-name">'+e(merchant.name)+'</p>'+(changeNotice?'<p class="cart-change-note" role="status">'+e(changeNotice)+'</p>':'')+(items.length?'<div class="cart-lines">'+items.map(line=>'<article class="cart-line"><div class="cart-line-title"><h3>'+e(line.name)+'</h3><button class="cart-remove" type="button" data-cart-action="remove" data-product-id="'+e(line.product_id)+'" aria-label="Remove '+e(line.name)+'">'+icon('close')+'</button></div><p class="cart-line-unit">'+e(formatMoney(line.price_minor))+' / '+e(line.unit)+'</p>'+(!line.available?'<p class="cart-unavailable">Unavailable — remove to continue</p>':'')+'<div class="cart-line-bottom"><div class="quantity-control"><button type="button" data-cart-action="decrease" data-product-id="'+e(line.product_id)+'" aria-label="Decrease quantity of '+e(line.name)+'">−</button><output aria-label="Quantity of '+e(line.name)+'">'+line.quantity+'</output><button type="button" data-cart-action="increase" data-product-id="'+e(line.product_id)+'" aria-label="Increase quantity of '+e(line.name)+'"'+(line.quantity>=MAX_QUANTITY?' disabled':'')+'>+</button></div><span class="cart-line-price">'+e(formatMoney(line.price_minor*line.quantity))+'</span></div></article>').join('')+'</div><div class="cart-estimate"><span>Estimated subtotal</span><strong>'+e(formatMoney(totals.totalMinor))+'</strong></div><p class="cart-note">Current prices and availability are checked before you confirm. No payment is collected here.</p><div class="cart-fulfilment"><label for="cart-fulfilment">Your preference</label><select id="cart-fulfilment" data-fulfilment><option value="enquiry"'+(fulfilment==='enquiry'?' selected':'')+'>Enquiry only</option>'+(merchant.actions?.pickup_available?'<option value="pickup"'+(fulfilment==='pickup'?' selected':'')+'>Pickup</option>':'')+(merchant.actions?.delivery_available?'<option value="delivery"'+(fulfilment==='delivery'?' selected':'')+'>Delivery</option>':'')+'</select></div><button class="button button-primary cart-review" type="button" data-merchant-action="review"'+(reviewBusy||!totals.withinLimit?' disabled':'')+'>'+(reviewBusy?'Checking current prices…':merchant.is_demo?'Review sample cart':'Review WhatsApp enquiry')+icon('arrow')+'</button>'+(merchant.is_demo?'<p class="cart-note">Fictional demo: no WhatsApp message can be opened.</p>':''):'<div class="cart-empty">'+icon('grid')+'<h3>A little room for your favourites</h3><p>Add an item from the catalog to get started.</p><a href="#catalog">Keep exploring '+icon('arrow')+'</a></div>');
+    const fulfilmentMarkup=!checkoutReady?'':foodDelivery?'<p class="cart-delivery-note">Merchant-managed delivery. Delivery charges, timing and payment are arranged directly with the shop.</p>':'<div class="cart-fulfilment"><label for="cart-fulfilment">Your preference</label><select id="cart-fulfilment" data-fulfilment><option value="enquiry"'+(fulfilment==='enquiry'?' selected':'')+'>Enquiry only</option>'+(merchant.actions?.pickup_available?'<option value="pickup"'+(fulfilment==='pickup'?' selected':'')+'>Pickup</option>':'')+(merchant.actions?.delivery_available?'<option value="delivery"'+(fulfilment==='delivery'?' selected':'')+'>Delivery</option>':'')+'</select></div>';
+    target.innerHTML='<div class="cart-heading"><h2>Your cart</h2>'+(items.length?'<button class="cart-clear" type="button" data-cart-action="clear">Clear cart</button>':'')+'</div><p class="cart-merchant-name">'+e(merchant.name)+'</p>'+(!checkoutReady?'<p class="cart-note" data-ordering-unavailable>'+e(ORDERING_UNAVAILABLE_MESSAGE)+'</p>':'')+(changeNotice?'<p class="cart-change-note" role="status">'+e(changeNotice)+'</p>':'')+(items.length?'<div class="cart-lines">'+items.map(line=>'<article class="cart-line"><div class="cart-line-title"><h3>'+e(line.name)+'</h3><button class="cart-remove" type="button" data-cart-action="remove" data-product-id="'+e(line.product_id)+'" aria-label="Remove '+e(line.name)+'">'+icon('close')+'</button></div><p class="cart-line-unit">'+e(formatMoney(line.price_minor))+' / '+e(line.unit)+'</p>'+(!line.available?'<p class="cart-unavailable">Unavailable — remove to continue</p>':'')+'<div class="cart-line-bottom"><div class="quantity-control"><button type="button" data-cart-action="decrease" data-product-id="'+e(line.product_id)+'" aria-label="Decrease quantity of '+e(line.name)+'">−</button><output aria-label="Quantity of '+e(line.name)+'">'+line.quantity+'</output><button type="button" data-cart-action="increase" data-product-id="'+e(line.product_id)+'" aria-label="Increase quantity of '+e(line.name)+'"'+(line.quantity>=MAX_QUANTITY?' disabled':'')+'>+</button></div><span class="cart-line-price">'+e(formatMoney(line.price_minor*line.quantity))+'</span></div></article>').join('')+'</div><div class="cart-estimate"><span>Estimated subtotal</span><strong>'+e(formatMoney(totals.totalMinor))+'</strong></div><p class="cart-note">Current prices and availability are checked before you confirm. No payment is collected here.</p>'+fulfilmentMarkup+'<button class="button button-primary cart-review" type="button" data-merchant-action="review"'+(!checkoutReady||reviewBusy||!totals.withinLimit?' disabled':'')+'>'+(!checkoutReady?'WhatsApp ordering unavailable':reviewBusy?'Checking current prices…':merchant.is_demo?'Review sample cart':foodDelivery?'Order on WhatsApp':'Review WhatsApp enquiry')+icon('arrow')+'</button>'+(merchant.is_demo?'<p class="cart-note">Fictional demo: no WhatsApp message can be opened.</p>':''):'<div class="cart-empty">'+icon('grid')+'<h3>A little room for your favourites</h3><p>Add an item from the catalog to get started.</p><a href="#catalog">Keep exploring '+icon('arrow')+'</a></div>');
     syncProductCounts();
     if(focused?.action){const selector='[data-cart-action="'+focused.action+'"]'+(focused.id?'[data-product-id="'+focused.id+'"]':'');(target.querySelector(selector)||root.querySelector('#merchant-cart'))?.focus({preventScroll:true});}
   }
@@ -57,14 +61,34 @@ export async function mountMerchant({main,route,repository,cart,checkout,media,c
     if(result.changes.length)changeNotice=result.changes.some(change=>change.kind==='unavailable')?'Some items are no longer available. Review your cart.':'Prices have changed. Your cart now shows the current prices; please review them.';
     reconciling=true;cart.replace(merchant.id,result.items);reconciling=false;quote=fresh;renderCart();
   }
+  function confirmLabel(){return merchant.is_demo?'WhatsApp unavailable in demo':foodDelivery?'Confirm & Order on WhatsApp':'Confirm & open WhatsApp';}
+  function updateConfirmation(showError=false){
+    const field=root.querySelector('#checkout-address'),button=root.querySelector('[data-merchant-action="confirm"]');
+    const result=fulfilment==='delivery'?deliveryAddress(field?.value??customerAddress):{error:''};
+    if(field){field.setCustomValidity(result.error);field.setAttribute('aria-invalid',String(Boolean(result.error&&showError)));}
+    const error=root.querySelector('[data-address-error]');if(error&&showError)error.textContent=result.error;
+    for(const input of root.querySelectorAll('#checkout-address,#checkout-instructions,[data-merchant-action="close-checkout"]'))input.disabled=confirmBusy;
+    if(button)button.disabled=confirmBusy||!quote?.can_checkout||Boolean(result.error);
+    return !result.error;
+  }
   function renderConfirmation(message=''){
     if(!quote)return;
-    const content=root.querySelector('[data-checkout-content]');
-    content.innerHTML='<div class="dialog-heading"><div><p class="eyebrow">One last look</p><h2 id="checkout-title">'+(message?'Review your updated enquiry':'Review your enquiry')+'</h2></div><button class="icon-button" type="button" data-merchant-action="close-checkout" aria-label="Close enquiry review">'+icon('close')+'</button></div><p class="checkout-merchant">'+e(merchant.name)+'</p>'+(message?'<p class="cart-change-note" role="status">'+e(message)+'</p>':'')+'<ul class="checkout-lines">'+quote.items.map(line=>'<li><span>'+e(line.name||'Item no longer listed')+'<small>'+line.quantity+' × '+(line.price_minor!==null?e(formatMoney(Number(line.price_minor))):'Unavailable')+(line.unit?' / '+e(line.unit):'')+'</small>'+(!line.available?'<small class="cart-unavailable">Currently unavailable</small>':'')+'</span><strong>'+(line.line_total_minor!==null?e(formatMoney(Number(line.line_total_minor))):'—')+'</strong></li>').join('')+'</ul><div class="checkout-total"><span>Estimated total</span><strong>'+e(formatMoney(Number(quote.total_minor)))+'</strong></div><p class="checkout-preference">Preference: <strong>'+e({enquiry:'Enquiry only',pickup:'Pickup',delivery:'Delivery'}[fulfilment])+'</strong></p><div class="checkout-instructions"><label for="checkout-instructions">A note for the business <span>(optional)</span></label><textarea id="checkout-instructions" maxlength="500" placeholder="For example, a question about an item…">'+e(instructions)+'</textarea><small>Please avoid personal details such as your address or phone number.</small></div><p class="checkout-notice">'+(quote.can_checkout?(quote.enquiry_while_closed?'The business is closed. It accepts enquiries for later; this is not an immediate order. ':'')+'Final prices, stock and fulfilment are confirmed by the business. You will still need to send the message in WhatsApp.':e(reasons[quote.reason]||'WhatsApp enquiries are unavailable.'))+'</p>'+(!merchant.is_demo?'<p class="checkout-privacy">Confirming records the items, estimated prices, preference and optional note as an enquiry initiation. It does not confirm an order or that a message was sent.</p>':'')+'<p class="checkout-error" role="alert" data-checkout-error></p><div class="checkout-actions"><button class="button button-outline" type="button" data-merchant-action="close-checkout">Back to cart</button><button class="button button-primary" type="button" data-merchant-action="confirm"'+(!quote.can_checkout?' disabled':'')+'>'+(merchant.is_demo?'WhatsApp unavailable in demo':'Confirm & open WhatsApp')+icon('arrow')+'</button></div>';
-    if(!dialog.open)dialog.showModal();
+    const needsAddress=fulfilment==='delivery',content=root.querySelector('[data-checkout-content]');
+    content.innerHTML=
+      '<div class="dialog-heading"><div><p class="eyebrow">One last look</p><h2 id="checkout-title">'+(message?'Review your updated enquiry':'Review your enquiry')+'</h2></div><button class="icon-button" type="button" data-merchant-action="close-checkout" aria-label="Close enquiry review">'+icon('close')+'</button></div>'+
+      '<p class="checkout-merchant">'+e(merchant.name)+'</p>'+(message?'<p class="cart-change-note" role="status">'+e(message)+'</p>':'')+
+      '<ul class="checkout-lines">'+quote.items.map(line=>'<li><span>'+e(line.name||'Item no longer listed')+'<small>'+line.quantity+' &times; '+(line.price_minor!==null?e(formatMoney(Number(line.price_minor))):'Unavailable')+(line.unit?' / '+e(line.unit):'')+'</small>'+(!line.available?'<small class="cart-unavailable">Currently unavailable</small>':'')+'</span><strong>'+(line.line_total_minor!==null?e(formatMoney(Number(line.line_total_minor))):'&mdash;')+'</strong></li>').join('')+'</ul>'+
+      '<div class="checkout-total"><span>Estimated total</span><strong>'+e(formatMoney(Number(quote.total_minor)))+'</strong></div>'+
+      (foodDelivery?'<p class="checkout-preference">Delivery by the merchant. Delivery charges and estimated delivery time are confirmed by the shop. ShaharOne does not collect payment.</p>':'<p class="checkout-preference">Preference: <strong>'+e({enquiry:'Enquiry only',pickup:'Pickup',delivery:'Delivery'}[fulfilment])+'</strong></p>')+
+      (needsAddress?'<div class="checkout-address"><label for="checkout-address">Delivery Address <span>(required)</span></label><textarea id="checkout-address" name="delivery_address" rows="4" required minlength="12" maxlength="1000" autocomplete="street-address" aria-describedby="address-help address-error" placeholder="House/building, street or locality, and city">'+e(customerAddress)+'</textarea><small id="address-help">'+e(ADDRESS_MESSAGE)+'</small><p id="address-error" class="checkout-error" role="alert" data-address-error></p></div>':'')+
+      '<div class="checkout-instructions"><label for="checkout-instructions">'+(needsAddress?'Delivery instructions or landmark':'A note for the business')+' <span>(optional)</span></label><textarea id="checkout-instructions" maxlength="500" placeholder="'+(needsAddress?'For example, near the main gate...':'For example, a question about an item...')+'">'+e(instructions)+'</textarea>'+(!needsAddress?'<small>Please avoid personal details such as your address or phone number.</small>':'')+'</div>'+
+      '<p class="checkout-notice">'+(quote.can_checkout?(quote.enquiry_while_closed?'The shop is closed and accepts enquiries for later. Immediate delivery is not confirmed. ':'')+'Final prices and availability are confirmed by the business. You still need to send the message in WhatsApp.':e(reasons[quote.reason]||'WhatsApp enquiries are unavailable.'))+'</p>'+
+      (!merchant.is_demo?'<p class="checkout-privacy">'+(needsAddress?'Your address and delivery instructions are added to your WhatsApp message. They are processed to prepare the link and are not saved in ShaharOne checkout history or analytics. ':'')+'Confirming records the shop, items, estimated value and checkout initiation. It does not confirm an order or that a message was sent.</p>':'')+
+      '<p class="checkout-error" role="alert" data-checkout-error></p><div class="checkout-actions"><button class="button button-outline" type="button" data-merchant-action="close-checkout">Back to cart</button><button class="button button-primary" type="button" data-merchant-action="confirm">'+e(confirmLabel())+icon('arrow')+'</button></div>';
+    updateConfirmation();if(!dialog.open)dialog.showModal();
   }
   async function review(){
-    if(reviewBusy||!cart.get(merchant.id).length)return;
+    if(!checkoutReady||reviewBusy||!cart.get(merchant.id).length)return;
     reviewRequest?.abort();const request=new AbortController();reviewRequest=request;
     const requestedFulfilment=fulfilment;reviewBusy=true;renderCart();
     try{
@@ -76,9 +100,11 @@ export async function mountMerchant({main,route,repository,cart,checkout,media,c
   }
   function invalidateReview(){reviewRequest?.abort();reviewRequest=null;reviewBusy=false;quote=null;if(dialog.open&&!confirmBusy)dialog.close();}
   async function confirm(){
-    if(confirmBusy||!quote?.can_checkout)return;
+    if(!checkoutReady||confirmBusy||!quote?.can_checkout||!updateConfirmation(true))return;
     instructions=root.querySelector('#checkout-instructions')?.value||'';
+    if(fulfilment==='delivery'){const note=deliveryInstructions(instructions);if(note.error){root.querySelector('[data-checkout-error]').textContent=note.error;return;}instructions=note.value;customerAddress=deliveryAddress(root.querySelector('#checkout-address').value).value;}
     confirmBusy=true;
+    updateConfirmation();
     const button=root.querySelector('[data-merchant-action="confirm"]');button.disabled=true;button.textContent='Preparing your enquiry…';
     root.querySelector('[data-checkout-error]').textContent='';
     let popup;
@@ -87,7 +113,7 @@ export async function mountMerchant({main,route,repository,cart,checkout,media,c
       if(popup){popup.opener=null;popup.document.title='Preparing your enquiry';popup.document.body.textContent='Preparing your WhatsApp enquiry. Please keep this window open.';}
     }catch{popup=null;}
     try{
-      const result=await checkout.prepare({merchant_id:merchant.id,items:cartItems(cart.get(merchant.id)),fulfilment,instructions,quote_token:quote.quote_token});
+      const result=await checkout.prepare({merchant_id:merchant.id,items:cartItems(cart.get(merchant.id)),fulfilment,instructions,...fulfilment==='delivery'?{delivery_address:customerAddress}:{},quote_token:quote.quote_token});
       if(life.signal.aborted){popup?.close();return;}
       root.querySelector('[data-checkout-content]').innerHTML='<div class="checkout-success">'+icon('check')+'<h2 id="checkout-title">Your enquiry link is ready</h2><p>Your enquiry initiation and link preparation were recorded. The business has not accepted an order, and we cannot tell whether you send the WhatsApp message.</p><strong class="checkout-reference">'+e(result.reference)+'</strong><a class="button button-primary" href="'+e(result.url)+'" target="_blank" rel="noopener noreferrer">Open WhatsApp '+icon('arrow')+'</a><p>If WhatsApp did not open, use the link above. Your cart is still saved.</p><button class="button button-outline" type="button" data-merchant-action="close-checkout">Return to browsing</button></div>';
       if(popup&&!popup.closed)popup.location.replace(result.url);
@@ -95,7 +121,7 @@ export async function mountMerchant({main,route,repository,cart,checkout,media,c
       popup?.close();if(life.signal.aborted)return;
       if(error.quote){applyQuote(error.quote);renderConfirmation(error.code==='quote_changed'?'Prices or availability changed. Please review the updated details before confirming again.':reasons[error.quote.reason]||'The enquiry is currently unavailable.');}
       else root.querySelector('[data-checkout-error]').textContent=errors[error.code]||'The link could not be prepared. Your cart is saved. Please try again; retries reuse the same enquiry.';
-    }finally{confirmBusy=false;const current=root.querySelector('[data-merchant-action="confirm"]');if(current){current.disabled=!quote?.can_checkout;current.innerHTML='Confirm & open WhatsApp '+icon('arrow');}}
+    }finally{confirmBusy=false;const current=root.querySelector('[data-merchant-action="confirm"]');if(current){current.innerHTML=e(confirmLabel())+icon('arrow');updateConfirmation();}}
   }
   function filterUrl({replace=false}={}){
     const url=new URL(location.href);
@@ -165,9 +191,10 @@ export async function mountMerchant({main,route,repository,cart,checkout,media,c
     if(action==='view-cart'){root.querySelector('#merchant-cart').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});root.querySelector('#merchant-cart').focus({preventScroll:true});}
     if(action==='gallery')showGallery();if(action==='close-gallery')galleryDialog.close();
     if(action==='previous-photo')showGallery(galleryIndex-1);if(action==='next-photo')showGallery(galleryIndex+1);
-    if(action==='share'){if(navigator.clipboard)navigator.clipboard.writeText(location.origin+merchant.canonical_path).then(()=>toast('Merchant link copied.')).catch(()=>toast('Copy the page link from your address bar.'));else toast('Copy the page link from your address bar.');}
+    if(action==='share'){if(navigator.clipboard)navigator.clipboard.writeText((document.documentElement.dataset.siteOrigin||config.siteUrl||location.origin)+merchant.canonical_path).then(()=>toast('Merchant link copied.')).catch(()=>toast('Copy the page link from your address bar.'));else toast('Copy the page link from your address bar.');}
   },{signal:life.signal});
-  root.addEventListener('input',event=>{if(event.target.matches('[name="product_q"]'))search();if(event.target.id==='checkout-instructions')instructions=event.target.value;},{signal:life.signal});
+  root.addEventListener('input',event=>{if(event.target.matches('[name="product_q"]'))search();if(event.target.id==='checkout-instructions')instructions=event.target.value;if(event.target.id==='checkout-address'){customerAddress=event.target.value;updateConfirmation(true);}},{signal:life.signal});
+  root.addEventListener('focusout',event=>{if(event.target.id==='checkout-address')updateConfirmation(true);},{signal:life.signal});
   root.addEventListener('change',event=>{
     if(event.target.matches('[data-catalog-form] select,[data-catalog-form] [type="checkbox"]')){search.cancel();filters=readForm();filterUrl();loadProducts();}
     if(event.target.matches('[data-fulfilment]')){fulfilment=event.target.value;invalidateReview();renderCart();}
@@ -177,7 +204,7 @@ export async function mountMerchant({main,route,repository,cart,checkout,media,c
   galleryDialog.addEventListener('keydown',event=>{if(event.key==='ArrowRight'||event.key==='ArrowLeft'){event.preventDefault();showGallery(galleryIndex+(event.key==='ArrowRight'?1:-1));}},{signal:life.signal});
   const unsubscribe=cart.subscribe(id=>{if(id===merchant.id){if(!reconciling)invalidateReview();renderCart();}});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden){clearTimeout(statusTimer);refreshStatus();}},{signal:life.signal});
-  function cleanup(){if(life.signal.aborted)return;life.abort();productsRequest?.abort();reviewRequest?.abort();search.cancel();clearTimeout(statusTimer);mediaCleanup?.();galleryMediaCleanup?.();unsubscribe();if(dialog.open)dialog.close();if(galleryDialog.open)galleryDialog.close();}
+  function cleanup(){if(life.signal.aborted)return;customerAddress='';instructions='';quote=null;life.abort();productsRequest?.abort();reviewRequest?.abort();search.cancel();clearTimeout(statusTimer);mediaCleanup?.();galleryMediaCleanup?.();unsubscribe();if(dialog.open)dialog.close();if(galleryDialog.open)galleryDialog.close();}
   signal.addEventListener('abort',cleanup,{once:true});
   if(commerce){
     const form=root.querySelector('[data-catalog-form]');form.elements.product_q.value=filters.query;if(form.elements.product_category)form.elements.product_category.value=filters.categoryId;if(form.elements.diet)form.elements.diet.value=filters.dietary;form.elements.available.checked=filters.availableOnly;form.elements.product_sort.value=filters.sort;

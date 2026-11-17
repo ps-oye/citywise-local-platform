@@ -1,18 +1,39 @@
 export function createAdminRepository(client) {
+  let deliveryTrackingReady;
   async function rpc(name,args={}) {
     const {data,error} = await client.rpc(name,args);
     if(error)throw Object.assign(new Error(error.message),{code:error.code,details:error.details});
     return data;
   }
   return {
-    context: city => rpc('admin_context',{p_city_id:city||null}),
+    async context(city) {
+      const args={p_city_id:city||null};
+      let result;
+      try {
+        result=await rpc('admin_context_checkout',args);
+        deliveryTrackingReady=true;
+      } catch(error) {
+        // Only a missing RPC permits compatibility with the existing schema.
+        // Authorization, network and other database failures must still fail closed.
+        if(error.code!=='PGRST202')throw error;
+        result=await rpc('admin_context',args);
+        deliveryTrackingReady=false;
+      }
+      return {...result,delivery_tracking_ready:deliveryTrackingReady};
+    },
     overview: city => rpc('admin_overview',{p_city_id:city}),
     analytics: (city,from,to,includeDemo=false) => rpc('admin_analytics',{p_city_id:city,p_from:from,p_to:to,p_include_demo:includeDemo}),
+    checkoutMerchants:(city,query='',offset=0)=>rpc('admin_checkout_merchants',{p_city_id:city,p_query:query,p_offset:offset,p_limit:40}),
+    checkoutTracking:(city,from,to,merchant,sort,activityOffset=0,summaryOffset=0,includeDemo=false)=>rpc('admin_checkout_tracking',{
+      p_city_id:city,p_from:from,p_to:to,p_merchant_id:merchant||null,p_sort:sort,p_activity_offset:activityOffset,p_summary_offset:summaryOffset,p_limit:20,p_include_demo:includeDemo}),
     listings: (city,query='',status='all',offset=0) => rpc('admin_listings',{p_city_id:city,p_query:query,p_status:status,p_offset:offset,p_limit:20}),
     listing: id => rpc('admin_listing',{p_id:id}),
     saveListing: (data,revision) => rpc('admin_save_listing',{p_data:data,p_expected:revision||null}),
     listingState: (id,action,revision) => rpc('admin_listing_state',{p_id:id,p_action:action,p_expected:revision}),
-    saveTaxonomy: (kind,data,revision) => rpc('admin_save_taxonomy',{p_kind:kind,p_data:data,p_expected:revision||null}),
+    saveTaxonomy(kind,data,revision) {
+      if(deliveryTrackingReady===false&&Object.hasOwn(data,'food_catalog'))throw new Error('ADMIN_DELIVERY_UPDATE_REQUIRED');
+      return rpc(deliveryTrackingReady===false?'admin_save_taxonomy':'admin_save_taxonomy_checkout',{p_kind:kind,p_data:data,p_expected:revision||null});
+    },
     deleteTaxonomy: (kind,id,revision) => rpc('admin_delete_taxonomy',{p_kind:kind,p_id:id,p_expected:revision}),
     ads: (city,offset=0) => rpc('admin_ads',{p_city_id:city,p_offset:offset,p_limit:20}),
     ad: id => rpc('admin_ad',{p_id:id}),

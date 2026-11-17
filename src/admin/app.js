@@ -7,7 +7,7 @@ import {createSupabaseClient} from '../data/supabase-client.js';
 import {createAdminRepository} from '../data/admin-repository.js';
 import {createAdminSession} from '../services/admin-session.js';
 import {createMediaService} from '../services/media-service.js';
-import {adminError} from '../domain/admin.js';
+import {adminError,DELIVERY_UPDATE_NOTICE} from '../domain/admin.js';
 import {icon} from '../components/icons.js';
 import {e,field,heading,badge,empty,button} from './ui.js';
 import {merchantsPage} from './pages/merchants.js';
@@ -23,7 +23,7 @@ const repo=client?createAdminRepository(client):null,media=client?createMediaSer
 const root=document.querySelector('#admin-root');
 const nav=[['overview','Overview','grid'],['merchants','Merchants','home'],['catalog','Products & imports','grid'],['categories','Categories','leaf'],['locations','Locations','pin'],['advertisements','Advertisements','spark'],['ranking','Homepage ranking','menu'],['hours','Business hours','clock'],['analytics','Enquiries & analytics','spark'],['media','Media library','grid']];
 let user,context,dirty=false,epoch=0,cleanup,activeHash='',toastTimer,session,switchingCity=false;
-const brand=`<span class="brand-mark" aria-hidden="true">r<span>1</span></span><span>${e(config.brandName)}<small>ADMIN WORKSPACE</small></span>`;
+const brand=`<span class="brand-mark" aria-hidden="true">S<span>1</span></span><span>${e(config.brandName)}<small>ADMIN WORKSPACE</small></span>`;
 function toast(message,error=false) {
   const element=document.querySelector('.admin-toast');element.textContent=message;element.dataset.error=String(error);element.hidden=false;
   clearTimeout(toastTimer);toastTimer=setTimeout(()=>{element.hidden=true;},6500);
@@ -46,7 +46,7 @@ function login(message='') {
   };
 }
 function shell() {
-  root.innerHTML=`<div class="admin-workspace"><aside class="admin-sidebar"><a class="brand" href="#overview">${brand}</a><p class="admin-nav-label">MANAGE YOUR PLATFORM</p><nav aria-label="Administration">${nav.map(([key,label,graphic])=>`<a href="#${key}" data-nav="${key}">${icon(graphic)}<span>${label}</span></a>`).join('')}</nav><div class="admin-sidebar-note">${icon('leaf')}<p>A small place.<br><strong>A connected community.</strong></p><a href="/" target="_blank" rel="noopener">Open public site ↗</a></div></aside><div class="admin-work"><header class="admin-topbar"><div class="admin-inline"><span class="admin-workspace-label">Your workspace</span><label class="admin-city">${icon('pin')}<span class="sr-only">Manage city</span><select aria-label="Manage city" id="admin-city">${context.cities.map(city=>`<option value="${e(city.id)}"${city.id===context.city_id?' selected':''}>${e(city.name)}${city.enabled?'':' · Disabled'}</option>`).join('')}</select></label></div><div class="admin-account"><span class="admin-avatar" aria-hidden="true">A</span><span class="admin-account-email">${e(user.email||'Administrator')}<small>Platform administrator</small></span><button class="button button-secondary" type="button" id="admin-sign-out">Sign out</button></div></header><main id="main" class="admin-content" tabindex="-1"></main><footer class="admin-work-footer">${e(config.brandName)} <span>Made for the neighbourhood.</span></footer></div></div>`;
+  root.innerHTML=`<div class="admin-workspace"><aside class="admin-sidebar"><a class="brand" href="#overview">${brand}</a><p class="admin-nav-label">MANAGE YOUR PLATFORM</p><nav aria-label="Administration">${nav.map(([key,label,graphic])=>`<a href="#${key}" data-nav="${key}">${icon(graphic)}<span>${label}</span></a>`).join('')}</nav><div class="admin-sidebar-note">${icon('leaf')}<p>A small place.<br><strong>A connected community.</strong></p><a href="/" target="_blank" rel="noopener">Open public site ↗</a></div></aside><div class="admin-work"><header class="admin-topbar"><div class="admin-inline"><span class="admin-workspace-label">Your workspace</span><label class="admin-city">${icon('pin')}<span class="sr-only">Manage city</span><select aria-label="Manage city" id="admin-city">${context.cities.map(city=>`<option value="${e(city.id)}"${city.id===context.city_id?' selected':''}>${e(city.name)}${city.enabled?'':' · Disabled'}</option>`).join('')}</select></label></div><div class="admin-account"><span class="admin-avatar" aria-hidden="true">A</span><span class="admin-account-email">${e(user.email||'Administrator')}<small>Platform administrator</small></span><button class="button button-secondary" type="button" id="admin-sign-out">Sign out</button></div></header>${context.delivery_tracking_ready===false?'<p class="admin-helper admin-schema-notice" role="status" data-schema-notice>'+e(DELIVERY_UPDATE_NOTICE)+'</p>':''}<main id="main" class="admin-content" tabindex="-1"></main><footer class="admin-work-footer">${e(config.brandName)} <span>Made for the neighbourhood.</span></footer></div></div>`;
   root.querySelector('#admin-sign-out').onclick=async()=>{if(dirty&&!await confirm('Discard unsaved changes?','Your form changes have not been saved.','Discard & sign out'))return;await session.signOut().catch(error=>toast(error.message,true));};
   root.querySelector('#admin-city').onchange=async event=>{
     const choice=event.target.value;

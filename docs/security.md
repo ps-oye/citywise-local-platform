@@ -1,5 +1,7 @@
 # Security model and verification
 
+The latest [delivery update](delivery-update-report.md) and [release guide](delivery-release-guide.md) supersede earlier phase-specific notes about separate hosted environments and checkout fields. Migration 10 is pending locally; no hosted schema/configuration or business data was changed by this update.
+
 ## Authorization
 
 The Supabase publishable key identifies a project, not an administrator. RLS is enabled on all 33 application tables: the original 30, Phase 3's private checkout limiter, Phase 5's private import previews and Phase 6's private analytics limiter. Only the Auth UID in the private single-row allowlist can manage public business records. User metadata and frontend checks cannot grant access.
@@ -80,7 +82,7 @@ Hosted identity comes from Cloudflare's ingress `CF-Connecting-IP` only when its
 
 Trusted initiation independently checks published/enabled status, non-demo commerce type, verified contact, action/fulfilment rules, operating closures and every product's merchant/category/active/available state. Total money limits are checked after aggregation. Merchant/action/product locks and advisory idempotency locks protect both new attempts and retries. Price/stock/status changes require review again; a reused key with a different canonical request conflicts. SHA-256 fingerprints bind requests; the public quote token is a revision indicator, not an authorization secret.
 
-The server builds links only from its database receipt, then records handoff creation. Failure to prepare/record a link returns a safe retry response. Historical snapshots preserve names, units and prices. The optional note is disclosed as part of the private enquiry record; no customer name, phone or address field is requested. Carts stay in the browser and remain untrusted estimates until quoted.
+The server builds links from its authoritative database receipt, then records handoff creation. Failure to prepare/record a link returns a safe retry response. Historical snapshots preserve names, units and prices. Earlier non-food enquiries may retain their disclosed optional note. The delivery update adds transient address/instructions under the boundary documented below. Carts stay in the browser and remain untrusted estimates until quoted.
 
 Merchant HTML uses public credentials under RLS, callback-based replacements, HTML/attribute escaping and safely escaped non-executable JSON. Hidden listings return 404; validated canonical redirects are same-origin paths. Tests cover XSS tags and JavaScript replacement tokens embedded in merchant text.
 
@@ -124,7 +126,7 @@ All public HTML, sitemap and media reads use the public key and existing RLS. Es
 
 Migration 9 preserves `discovery_home`'s invoker permissions, RLS, contract and locality/ranking behavior. It limits identities before card enrichment and disables JIT only for this function. No global database timeout, grant or policy was weakened to resolve the hosted homepage timeout.
 
-The preview deployer verifies the target Cloudflare account and raw project production-branch metadata before upload. It publishes only to a separate preview branch and writes bindings only in the preview environment. Credentials pass through memory/stdin with redacted errors; Wrangler retains its normal local login profile. The built public artifacts were scanned against actual configured server-secret values with zero matches. No production target, custom domain, DNS or paid service was configured. See [Phase 6 setup](phase-6-setup.md) and [results](phase-6-report.md).
+The former Phase 6 preview deployer is retired by the latest single-hosted-environment update; its script now exits without network writes. Keep one existing Pages/main/Supabase configuration. Configured server-secret scans remain part of the build preflight. No production deployment, domain/DNS setting or credential was changed by this update. See [current deployment instructions](deployment-guide.md); Phase 6 setup/results are historical.
 
 Implementation references: [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [Storage access control](https://supabase.com/docs/guides/storage/security/access-control), [Storage ownership](https://supabase.com/docs/guides/storage/security/ownership), [PostgreSQL policy composition](https://www.postgresql.org/docs/17/sql-createpolicy.html), [default privileges](https://www.postgresql.org/docs/17/sql-alterdefaultprivileges.html), [JavaScript client initialization](https://supabase.com/docs/reference/javascript/initializing).
 
@@ -134,6 +136,24 @@ The admin operation runner now checks its page generation and active user before
 
 Optional analytics preferences synchronize across open tabs through storage events and are refreshed when a tab becomes visible. Opt-out clears/aborts pending work, and changing the choice back cannot retry a discarded batch. If storage is blocked, the current tab still honors its in-memory preference. No visitor identifier or new event field was added.
 
-The production preflight validates the project ref and compares the complete normalized HTTPS Supabase origin, rejecting suffix hosts, injected refs and unexpected ports before sending credentials to a backend. Actual public build and compiled Functions scans found no configured server-secret values.
+The deployment preflight compares complete normalized HTTPS browser/server Supabase origins, rejecting suffix hosts, injected refs and unexpected ports before sending credentials to a backend. The obsolete separate-project selector is retired. Actual public build and compiled Functions scans found no configured server-secret values.
 
 Phase 7 adds no migration or hosted business-data test fixture. Read-only live checks retain 33 RLS tables, 31 guarded invoker admin RPCs, private buckets and service-only event writers. Local SQL/HTTP/browser tests cover role revocation, stale operations, privacy and checkout/import behavior. Hosted QA uses DNT and public reads; real password sign-in and Storage uploads remain operator verification before production. See [Phase 7 results](phase-7-report.md).
+
+## Delivery address, idempotency and tracking boundary
+
+For delivery, both client and server normalize NFC text, trim excess whitespace while retaining meaningful line breaks/Unicode, reject controls and unpaired surrogates, and require a reasonably complete address of 12-1,000 characters. Instructions are optional and limited to 500 characters. The confirmation cannot proceed without a valid address; address/instruction and close controls lock during preparation so the displayed destination cannot change beneath an in-flight request.
+
+Plaintext delivery address/instructions exist only in page memory, the same-origin HTTPS request and the necessary encoded WhatsApp link. They are not sent to database RPCs, stored in analytics/history/browser persistence, placed in internal route URLs, or logged by the application. The popup explains that the delivery details are shared through WhatsApp and are not saved in order tracking. Provider request-body/outbound-link logging must remain disabled. The outbound link necessarily carries the encoded text; it is not an internal analytics URL.
+
+The backend computes a domain-separated HMAC over merchant ID and normalized delivery text using the existing private secret. Only that opaque digest reaches the service-only delivery initiation RPC. It binds delivery changes into existing merchant/items/quote/UUID idempotency without storing the address. Repeated identical requests reuse one record; a changed cart or address cannot reuse the same initiation silently. Browser persistence retains opaque keys/digests only. The final locked database quote independently requires the fingerprint for food, so calling the legacy RPC cannot bypass mandatory delivery validation.
+
+The new public food/detail reads remain invokers under RLS. New taxonomy/context/report wrappers require the existing admin allowlist, authenticated-only execution and empty search paths. The delivery writer is service-only; no private table write grants, broad policies or RLS exceptions were added. Merchant tracking derives identity from UUIDs and omits delivery fingerprints, private notes, contacts and request hashes. The pending migration and non-deleting rollback were exercised on populated isolated SQL fixtures, including historical RB and new SO receipts.
+
+Single hosted configuration does not mean live test data: all checkout, SQL, browser and performance checks use isolated fixtures. No hosted test checkouts, migration application, Auth/Storage mutation or deployment were performed by this task.
+
+## Compatibility while migration 10 is pending
+
+Admin and public merchant compatibility reads activate only for the specific missing-function response; permission/network failures and hidden merchant results never downgrade. The legacy public merchant RPC retains publication/RLS checks and public credentials in both HTML rendering and client navigation. Its explicit checkout-unavailable capability keeps catalog browsing separate from write eligibility. Public error bodies are bounded and only the recognized missing-function code is preserved; backend messages are not exposed.
+
+The trusted checkout boundary independently probes the server-owned food capability before quota/intent writes. If that API is unavailable, it returns a narrow temporary-unavailable response and writes nothing. Food cannot use pickup/enquiry-only requests to bypass mandatory delivery validation, even if a caller ignores the disabled UI. On an updated schema, the final locked quote and initiation still revalidate contacts, products/prices, hours, fingerprints and idempotency. See [merchant-page verification](merchant-page-fix.md). No policy, grant, credential or hosted record was changed for compatibility.

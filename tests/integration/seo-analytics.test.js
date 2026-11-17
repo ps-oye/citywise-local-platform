@@ -62,8 +62,12 @@ test('hidden listings, unavailable contact actions and expired ads never produce
 
 test('event budgets charge batch cost independently from checkout and stay committed after a failed intake',async()=>{
   const hash='a'.repeat(64),before=(await db.query('select count(*)::int count from private.checkout_rate_limits')).rows[0].count;
-  for(let i=0;i<6;i++)assert.equal((await rpc('analytics_consume_limit',[hash,20],'service_role')).allowed,true);
-  assert.equal((await rpc('analytics_consume_limit',[hash,1],'service_role')).allowed,false);
+  // PostgreSQL now() is stable within a transaction: don't let a wall-clock minute
+  // boundary legitimately reset the budget halfway through this assertion.
+  await asRole(db,'service_role',null,async tx=>{
+    for(let i=0;i<6;i++)assert.equal((await tx.query('select public.analytics_consume_limit($1,20) result',[hash])).rows[0].result.allowed,true);
+    assert.equal((await tx.query('select public.analytics_consume_limit($1,1) result',[hash])).rows[0].result.allowed,false);
+  });
   await assert.rejects(record([{...event(),visitor_id:'forbidden'}]));
   assert.equal((await db.query('select event_count from private.analytics_rate_limits where scope=$1 and window_seconds=60',['client:'+hash])).rows[0].event_count,121);
   assert.equal((await db.query('select count(*)::int count from private.checkout_rate_limits')).rows[0].count,before);

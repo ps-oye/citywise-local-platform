@@ -1,4 +1,5 @@
 export const LISTING_TYPES = ['COMMERCE','RESTAURANT','HOTEL','SERVICE_PROVIDER','FITNESS','ATTRACTION','INFORMATIONAL','GENERAL_BUSINESS'];
+export const DELIVERY_UPDATE_NOTICE='Database update pending: delivery checkout and merchant-wise tracking require reviewed migration 10. Existing administration remains available. Reload after the update is applied.';
 export const WEEKDAYS = [[1,'Monday'],[2,'Tuesday'],[3,'Wednesday'],[4,'Thursday'],[5,'Friday'],[6,'Saturday'],[0,'Sunday']];
 export const OFFERING_KINDS = {HOTEL:['room','package'],FITNESS:['membership','package'],SERVICE_PROVIDER:['service','package'],ATTRACTION:['visiting_info'],INFORMATIONAL:['visiting_info','service'],GENERAL_BUSINESS:['service','package']};
 export function slugify(value) { return String(value).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,100); }
@@ -12,6 +13,7 @@ export function localDateTime(value, timezone='Asia/Kolkata') {
   try { const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(value)).map(p=>[p.type,p.value]));return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`; }catch {return '';}
 }
 export function adminError(error) {
+  if(error?.code==='PGRST202'||error?.message==='ADMIN_DELIVERY_UPDATE_REQUIRED')return 'A required database update is missing. Review and apply the pending migrations, then reload this page.';
   if(error?.message==='CATALOG_ROW_INVALID'){
     try {const detail=JSON.parse(error.details||'{}');if(detail.message)return detail.message;}catch{/* The database detail is optional. */}
     return 'Check the product fields, price and merchant-scoped category/image references.';

@@ -1,5 +1,7 @@
 # Phase 6: SEO, analytics and deployment
 
+> Historical phase record. Current one-hosted-backend configuration and delivery behavior are documented in [deployment guide](deployment-guide.md), [delivery update report](delivery-update-report.md) and [release/backup/rollback guide](delivery-release-guide.md). Earlier separate-environment/preview-deployment instructions are retired.
+
 Phase 6 keeps the existing HTML/CSS/vanilla JavaScript, Supabase and Cloudflare Pages stack. The selected release target is a **noindex preview using the existing development database**, not a production launch. Development business/demo data and the administrator are retained.
 
 ## Public pages and search metadata

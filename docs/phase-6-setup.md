@@ -1,5 +1,7 @@
 # Phase 6 setup and migration effects
 
+> Historical phase record. Current one-hosted-backend configuration and delivery behavior are documented in [deployment guide](deployment-guide.md), [delivery update report](delivery-update-report.md) and [release/backup/rollback guide](delivery-release-guide.md). Earlier separate-environment/preview-deployment instructions are retired.
+
 As of 13 November 2026 (Asia/Kolkata), the authorized development preview is live at [https://964c0074.rawatbhata-one.pages.dev](https://964c0074.rawatbhata-one.pages.dev). Open [/admin/](https://964c0074.rawatbhata-one.pages.dev/admin/) with the existing administrator's email/password, entered only in your browser. Choose **Enquiries & analytics** for the new report. The report defaults to excluding fictional activity; enable the explicit demo checkbox to inspect sample activity.
 
 ## Configured development services

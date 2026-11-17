@@ -7,16 +7,16 @@ const qa='/qa-town/food/qa-test-kitchen';
 async function control(request,path,data){const options={headers:{'x-fixture-control':'phase3_isolated_control'}};return data===undefined?request.get(api+'/__test/'+path,options):request.post(api+'/__test/'+path,{...options,data});}
 async function open(page,path=qa){await page.goto(path);await expect(page.locator('[data-merchant-ready]')).toBeVisible();}
 async function add(page,name='QA Vegetable Thali'){await page.getByRole('button',{name:'Add '+name+' to cart',exact:true}).click();}
-async function review(page){await page.getByRole('button',{name:'Review WhatsApp enquiry'}).click();await expect(page.getByRole('dialog',{name:'Review your enquiry'})).toBeVisible();}
+async function review(page){await page.getByRole('button',{name:'Order on WhatsApp'}).click();await expect(page.getByRole('dialog',{name:'Review your enquiry'})).toBeVisible();await page.getByLabel('Delivery Address',{exact:false}).fill('House 25, Example Colony, Rawatbhata');}
 test.beforeEach(async({request,page})=>{
   await control(request,'reset-limits',{});
   await page.addInitScript(()=>{window.open=()=>null;});
 });
 
 test('direct merchant HTML has useful content without JavaScript and hidden URLs return a real 404',async({browser,request})=>{
-  const context=await browser.newContext({javaScriptEnabled:false});const page=await context.newPage();
+  const context=await browser.newContext({javaScriptEnabled:false,baseURL:test.info().project.use.baseURL});const page=await context.newPage();
   try{
-    const response=await page.goto('http://127.0.0.1:5173/rawatbhata/food/demo-food');
+    const response=await page.goto('/rawatbhata/food/demo-food');
     expect(response.status()).toBe(200);await expect(page.getByRole('heading',{level:1})).toHaveText('Demo Gulmohar Kitchen');
     await expect(page.getByRole('heading',{name:'Contact & visiting information'})).toBeVisible();
     await expect(page.locator('.product-card')).toHaveCount(12);
@@ -73,11 +73,11 @@ test('demo merchants support sample carts and confirmation while actual WhatsApp
 
 test('confirmation records only initiation/handoff and provides a usable link when popups are blocked',async({page,request})=>{
   await open(page);await add(page);await add(page,'QA Egg Toast');
-  await page.getByLabel('Your preference').selectOption('delivery');await review(page);
+  await review(page);
   const dialog=page.locator('#checkout-dialog');await expect(dialog).toContainText('₹30.00');await expect(dialog).toContainText('Delivery');
-  await page.getByLabel('A note for the business (optional)').fill('A question about the portion size.');
+  await page.getByLabel('Delivery instructions or landmark (optional)').fill('A question about the portion size.');
   const responsePromise=page.waitForResponse(response=>response.url().endsWith('/api/checkout'));
-  await dialog.getByRole('button',{name:'Confirm & open WhatsApp'}).click();const response=await responsePromise;expect(response.status()).toBe(200);const result=await response.json();
+  await dialog.getByRole('button',{name:'Confirm & Order on WhatsApp'}).click();const response=await responsePromise;expect(response.status()).toBe(200);const result=await response.json();
   await expect(dialog.getByRole('heading',{name:'Your enquiry link is ready'})).toBeVisible();
   const fallback=dialog.getByRole('link',{name:'Open WhatsApp'});await expect(fallback).toHaveAttribute('href',/^https:\/\/wa\.me\/12025550123\?text=/);
   const message=new URL(await fallback.getAttribute('href')).searchParams.get('text');expect(message).toContain('not a confirmed order');expect(message).toContain('A question about the portion size.');
@@ -91,11 +91,11 @@ test('a price change after review requires a second explicit confirmation at the
   try{
     await control(request,'products/'+product,{price_minor:1500});
     const responsePromise=page.waitForResponse(response=>response.url().endsWith('/api/checkout'));
-    await page.getByRole('button',{name:'Confirm & open WhatsApp'}).click();expect((await responsePromise).status()).toBe(409);
+    await page.getByRole('button',{name:'Confirm & Order on WhatsApp'}).click();expect((await responsePromise).status()).toBe(409);
     const dialog=page.getByRole('dialog',{name:'Review your updated enquiry'});await expect(dialog).toBeVisible();await expect(dialog.locator('.checkout-total')).toContainText('₹15.00');
     await expect(dialog).toContainText('Please review the updated details');
     const acceptedPromise=page.waitForResponse(response=>response.url().endsWith('/api/checkout'));
-    await dialog.getByRole('button',{name:'Confirm & open WhatsApp'}).click();const accepted=await(await acceptedPromise).json();expect(accepted.receipt.total_minor).toBe(1500);
+    await dialog.getByRole('button',{name:'Confirm & Order on WhatsApp'}).click();const accepted=await(await acceptedPromise).json();expect(accepted.receipt.total_minor).toBe(1500);
     await expect(page.getByRole('heading',{name:'Your enquiry link is ready'})).toBeVisible();
   }finally{await control(request,'products/'+product,{price_minor:1000,available:true});}
 });
@@ -104,8 +104,8 @@ test('stock withdrawal after review blocks the handoff and preserves an editable
   await open(page);await add(page);await review(page);
   try{
     await control(request,'products/'+product,{available:false});
-    await page.getByRole('button',{name:'Confirm & open WhatsApp'}).click();
-    await expect(page.getByRole('dialog')).toContainText('Currently unavailable');await expect(page.getByRole('button',{name:'Confirm & open WhatsApp'})).toBeDisabled();
+    await page.getByRole('button',{name:'Confirm & Order on WhatsApp'}).click();
+    await expect(page.getByRole('dialog')).toContainText('Currently unavailable');await expect(page.getByRole('button',{name:'Confirm & Order on WhatsApp'})).toBeDisabled();
     await page.getByRole('button',{name:'Back to cart'}).click();await expect(page.locator('#checkout-dialog')).not.toBeVisible();await expect(page.locator('#merchant-cart .cart-unavailable')).toContainText('Unavailable');
     await page.getByRole('button',{name:'Remove QA Vegetable Thali'}).click();await expect(page.locator('.cart-line')).toHaveCount(0);
   }finally{await control(request,'products/'+product,{available:true,price_minor:1000});}
@@ -119,8 +119,8 @@ test('a lost HTTP response retries the same recorded enquiry without duplicate r
     if(attempts===1){firstKey=body.idempotency_key;const response=await route.fetch();firstResult=await response.json();await route.fulfill({status:503,contentType:'application/json',body:'{"code":"checkout_unavailable"}'});}
     else{expect(body.idempotency_key).toBe(firstKey);await route.continue();}
   });
-  await page.getByRole('button',{name:'Confirm & open WhatsApp'}).click();await expect(page.locator('[data-checkout-error]')).toContainText('retries reuse the same enquiry');
-  await page.getByRole('button',{name:'Confirm & open WhatsApp'}).click();await expect(page.locator('.checkout-reference')).toHaveText(firstResult.reference);
+  await page.getByRole('button',{name:'Confirm & Order on WhatsApp'}).click();await expect(page.locator('[data-checkout-error]')).toContainText('retries reuse the same enquiry');
+  await page.getByRole('button',{name:'Confirm & Order on WhatsApp'}).click();await expect(page.locator('.checkout-reference')).toHaveText(firstResult.reference);
   const records=await(await control(request,'checkouts')).json();expect(records.filter(record=>record.idempotency_key===firstKey)).toHaveLength(1);
 });
 

@@ -21,3 +21,15 @@ select ('71000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'70000000-0000-4
  n*1000,case when n=1 then 1500 else null end,'plate',case n when 2 then 'egg' when 3 then 'non_vegetarian' else 'vegetarian' end,n<>4,n from generate_series(1,17) n;
 insert into public.products(id,merchant_id,sku,name,price_minor,unit)
 values('71000000-0000-4000-8000-000000000090','70000000-0000-4000-8000-000000000002','QA-OTHER','QA Other Merchant Item',5000,'plate');
+
+-- Non-food catalog regression fixture: these preferences remain supported.
+insert into public.listings(id,city_id,name,slug,listing_type,description,publication_status,whatsapp_number,contact_verified_at)
+values('70000000-0000-4000-8000-000000000003','70000000-0000-4000-8000-000000000090','QA Test Store','qa-test-store','COMMERCE','Isolated stationery fixture, not a real business.','published','+12025550125',now());
+insert into public.listing_categories(listing_id,category_id,is_primary)
+select '70000000-0000-4000-8000-000000000003',id,true from public.categories where slug='shopping';
+insert into public.listing_actions(listing_id,checkout_enabled,pickup_available,delivery_available)
+values('70000000-0000-4000-8000-000000000003',true,true,true);
+insert into public.business_hours(listing_id,weekday,opens_at,closes_at,ends_next_day)
+select '70000000-0000-4000-8000-000000000003',d,'00:00','00:00',true from generate_series(0,6)d;
+insert into public.products(id,merchant_id,sku,name,price_minor,unit)
+values('71000000-0000-4000-8000-000000000091','70000000-0000-4000-8000-000000000003','QA-NOTEBOOK','QA Notebook',1000,'item');

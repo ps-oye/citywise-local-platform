@@ -8,3 +8,5 @@
 @media(max-width:699px){.admin-login{margin:.5rem auto;gap:2rem}.admin-login-story{display:none}.admin-login-card{margin:auto}.admin-login-header .text-link{font-size:.65rem}.admin-login-header{padding:1.2rem}.admin-login-header .brand{font-size:.85rem}.admin-page-heading h1{font-size:1.85rem}.admin-stat{padding:1rem}.admin-stat>span{font-size:.66rem}.admin-sidebar{position:sticky;top:0;z-index:10}.admin-sidebar nav a{padding:.6rem .75rem;font-size:.72rem}.admin-sidebar nav a .icon{width:17px;height:17px}.admin-account .button{min-height:40px;padding:.5rem .7rem;font-size:.72rem}.admin-topbar{padding:.6rem 1rem}.admin-table td{padding:.9rem .5rem}.admin-work-footer span{display:none}.admin-media-grid{grid-template-columns:1fr}.admin-fieldset-checks{grid-template-columns:1fr}}
 
 .admin-spaced{margin-top:1rem}.admin-login-story .admin-login-title{color:var(--color-ink);margin-bottom:1.5rem;letter-spacing:-.045em}.admin-login-title em{font-family:var(--font-display);color:var(--color-primary)}
+
+.admin-schema-notice{margin:1rem 1.5rem 0}

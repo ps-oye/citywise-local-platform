@@ -1,10 +1,16 @@
-# AGENTS.md — Rawatbhata One
+# AGENTS.md — ShaharOne
 
 ## 1. Project Overview
 
-Project Name: Rawatbhata One
+Project Name: ShaharOne
 
 Project Type: Hyperlocal Discovery Platform
+
+Umbrella brand: ShaharOne. Production origin: `https://shaharone.in`, configured through `VITE_SITE_URL` (browser/build) and `SITE_URL` (server). Keep this repository and the existing Cloudflare Pages project; their legacy technical identifiers are intentional.
+
+Rawatbhata is the first/default city. When exactly one city is enabled, `/` temporarily redirects to its `/:city/` homepage (currently `/rawatbhata/`), without a city-selection step. With multiple enabled cities, `/` automatically restores the city selector. Categories/search/explore and merchants remain city-scoped. Unknown or disabled city routes must never load another city's listings. Keep locality selection available in single-city mode.
+
+Preserve record UUIDs, applied migrations, historical checkout records, private storage paths and browser persistence keys. Use one existing GitHub repository, `main`, one existing Cloudflare Pages project and one existing Supabase project/Auth/Storage configuration. Do not provision separate hosted development/staging projects. Local tests use isolated fixtures, never live merchants or production checkout records. Secrets remain server-only; credentials and hosted settings require approval before changes. Indexing and host migration redirects remain explicit opt-ins with matching canonical-origin protection. See `docs/delivery-release-guide.md` before release; never deploy without explicit approval.
 
 Initial Location: Rawatbhata, Rajasthan, India
 
@@ -269,6 +275,10 @@ The customer journey is:
 8. Open WhatsApp with a prefilled message.
 
 Use WhatsApp Click-to-Chat.
+
+Food catalog checkout uses merchant-managed delivery only, with a mandatory validated multiline delivery address and optional instructions. Restaurants and food-capable categories share the server's food classification. Preserve pickup/enquiry options for non-food commerce and contact actions for informational listings. Never enable real checkout for fictional demo listings or unverified contacts.
+
+Customer delivery text is transient: validate it on client/server, include it only in the necessary encoded WhatsApp message, and never persist the full address/instructions in checkout history, analytics, browser storage, internal URLs or logs. Store only a server-keyed opaque fingerprint for safe idempotency. New references use `SO-`; historical `RB-` references remain supported. Admin tracking uses stable merchant UUIDs and includes renamed/disabled/archived history. Estimated checkout value is not sales revenue.
 
 Do not implement a payment gateway.
 

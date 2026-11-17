@@ -39,6 +39,19 @@ test('public discovery view and RPCs preserve caller RLS and expose only read op
   assert.equal(permissions.writable,false);
 });
 
+test('platform city selection uses existing public RLS, hides disabled cities and preserves the default city',async()=>{
+  const enabled='71000000-0000-4000-8000-000000000091',disabled='71000000-0000-4000-8000-000000000092';
+  await db.query("insert into public.cities(id,name,slug,state,enabled) values($1,'Future City','future-city-selector','Test',true),($2,'Hidden City','hidden-city-selector','Test',false)",[enabled,disabled]);
+  try{
+    const visible=await asRole(db,'anon',null,tx=>tx.query('select id,name,slug from public.cities order by is_default desc,name,id limit 25'));
+    assert.equal(visible.rows[0].id,CITY_ID);assert.ok(visible.rows.some(city=>city.id===enabled));assert.ok(!visible.rows.some(city=>city.id===disabled));
+    await db.query('update public.cities set enabled=false where id=$1',[enabled]);
+    const hidden=await asRole(db,'anon',null,tx=>tx.query('select id from public.cities where id=any($1::uuid[])',[[enabled,disabled]]));
+    assert.equal(hidden.rows.length,0);
+    assert.equal((await rpc('discovery_context',['future-city-selector'])).city,null);
+  }finally{await db.query('delete from public.cities where id=any($1::uuid[])',[[enabled,disabled]]);}
+});
+
 test('homepage sections page incrementally and return at most four ranked listings each',async()=>{
   const first=await rpc('discovery_home',[CITY_ID,null,0,4]);
   assert.equal(first.sections.length,4);assert.ok(first.has_more);

@@ -7,7 +7,7 @@ import { createDiscoveryRepository } from '../../src/data/discovery-repository.j
 import { onRequest } from '../../functions/[[path]].js';
 
 test('public routes accept descriptive city/category paths and keep admin, APIs and assets separate',()=>{
-  assert.equal(parsePublicPath('/').kind,'home');
+  assert.equal(parsePublicPath('/').kind,'platform');
   assert.equal(parsePublicPath('/rawatbhata').kind,'home');
   assert.equal(parsePublicPath('/rawatbhata/food').kind,'category');
   assert.equal(parsePublicPath('/rawatbhata/search').kind,'search');

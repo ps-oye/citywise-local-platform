@@ -34,7 +34,7 @@ export function readEnvironment(env = {}) {
   const rawSite = (env.VITE_SITE_URL ?? '').trim();
   const supabaseUrl = rawUrl ? parseOrigin(rawUrl) : null;
   const siteUrl = rawSite ? parseOrigin(rawSite) : null;
-  const brandName = (env.VITE_BRAND_NAME ?? 'Rawatbhata One').trim();
+  const brandName = (env.VITE_BRAND_NAME ?? 'ShaharOne').trim();
 
   if (!brandName || brandName.length > 80) errors.push('VITE_BRAND_NAME must contain 1–80 characters.');
   if (rawUrl && !supabaseUrl) errors.push('VITE_SUPABASE_URL must be an HTTPS origin (HTTP is allowed on localhost).');
@@ -48,7 +48,7 @@ export function readEnvironment(env = {}) {
   }
 
   return Object.freeze({
-    brandName: brandName || 'Rawatbhata One',
+    brandName: brandName || 'ShaharOne',
     siteUrl,
     supabaseUrl,
     supabaseKey: rawKey,
