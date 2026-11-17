@@ -15,7 +15,7 @@ Phase 1 defines 30 business/operational tables across two schemas. Phase 3 adds 
 | `20261113000700_catalog.sql` | Private bounded immutable import previews, product query index, nine private helpers and 11 guarded invoker RPCs for catalog editing, preparation, transactional confirmation and reports; no catalog data changes on installation |
 | `20261113000800_seo_analytics.sql` | Public invoker sitemap/media reads, service-only event recording/independent limiter, guarded city-local admin aggregates and three supporting indexes |
 | `20261113000900_homepage_query.sql` | Same homepage RPC/ACL/RLS contract; selects bounded ranked identities before materializing expensive display cards and scopes JIT off to this function |
-| `20261116001000_delivery_tracking.sql` | Pending: category food capability, private delivery retry fingerprint, SO/RB reference compatibility, delivery-only food quotes/initiation, merchant/date tracking and supporting indexes; no record deletion |
+| `20261116001000_delivery_tracking.sql` | Applied 17 November 2026: category food capability, private delivery retry fingerprint, SO/RB reference compatibility, delivery-only food quotes/initiation, merchant/date tracking and supporting indexes; no record deletion |
 
 `supabase/seed.sql` initializes only the real city and public brand settings. `supabase/seeds/discovery-demo.sql` includes that baseline and installs the complete Phase 2 fictional dataset. `supabase/seeds/demo.sql` remains the smaller Phase 1 test fixture.
 
@@ -78,7 +78,7 @@ Phase 3 implements checkout calculation, automatic hours evaluation and merchant
 
 ## Delivery and merchant tracking update (migration 10)
 
-Migration 10 is prepared locally and has not been applied to the hosted database. It adds no tables, changes no foreign key or RLS/Storage policy, and preserves merchant/product/category UUIDs, objects and operational history. Review [backup, migration effects and rollback](delivery-release-guide.md) before application. Migrations 1-9 and seeds are unchanged.
+Migration 10 was applied to the existing hosted database on 17 November 2026 after explicit approval and verified backup/restore. It adds no tables, changes no foreign key or RLS/Storage policy, and preserves merchant/product/category UUIDs, objects and operational history. See [application verification](migration-10-application-report.md) and [backup/migration effects/rollback](delivery-release-guide.md). Migrations 1-9 and seeds are unchanged; do not replay migration 10.
 
 `categories.food_catalog` is a boolean capability, inherited through assigned category ancestors; `RESTAURANT` listings are always food merchants. The migration marks only the existing `food`/`sweets` capabilities and normal update timestamps. The admin taxonomy wrapper validates and saves future capability changes. `merchant_is_food(uuid)` is an invoker read under caller RLS, with a recursive cycle guard.
 

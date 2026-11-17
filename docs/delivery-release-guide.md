@@ -2,7 +2,7 @@
 
 This update uses the **existing** repository, Pages project `rawatbhata-one`, primary branch `main`, and existing Supabase project `qyzcvmghhwxctwlaqhrq`. The project's legacy `-dev` name does not imply another backend. Its merchants, products, categories, images, ads, schedules, Auth user, storage buckets and checkout history remain in place. No extra project, staging website or repository is required.
 
-The implementation task does not apply the pending migration, run hosted test checkouts, change credentials/Cloudflare/DNS settings, push to `main` or deploy. The new application requires migration 10 before release.
+The implementation originally left migration 10 pending. On 17 November 2026, the user explicitly authorized its application: it is now installed on the existing database after a private backup and isolated restore verification. See [the application report](migration-10-application-report.md). No hosted test checkout, seed, credential/Cloudflare/DNS setting, Git push or frontend deployment was performed by that operation. Retain the review/application instructions below as an audit and future-release procedure; do not replay an already recorded migration.
 
 The [admin login compatibility fix](admin-login-fix.md) lets existing administration continue while that migration is pending. It falls back only when the new context RPC is missing; the existing admin allowlist/RLS still authorize access. A visible notice explains which new features require the reviewed update. This does not remove the migration requirement for the full delivery/tracking release or apply it automatically.
 
@@ -74,7 +74,7 @@ Indexing requires the explicit flag plus the exact configured HTTPS request orig
 ## 4. Apply and release only after review/approval
 
 1. Complete the backup and migration review above. Inspect the existing project's pending migration dry run; only migration 10 should be new. Do not include development seeds or demo cleanup.
-2. Apply the reviewed forward migration through the normal migration ledger process. The new public/admin API wrappers require it. This step is an operator action, not completed by the implementation task.
+2. Migration 10 is already applied. Verify it in the normal ledger and do not replay it. The original implementation and subsequent authorized application are recorded separately in the linked application report. Apply future schema changes only after their own review/backup/authorization.
 3. Recheck counts/references/relationships and RLS/grants against the backup. Test migration/rollback behavior with isolated fixtures before using the hosted database. Do not generate test checkout initiations against live merchants.
 4. Configure only the existing Pages project's Production variables for `main`; preserve existing credentials. Node 24, build command `npm run build && npm run deploy:check`, output `dist`, repository root build directory, and `functions/` remain. The read-only backend preflight now verifies migration 10 before allowing this build to be considered ready.
 5. In Cloudflare branch deployment controls, manually disable automatic preview-branch deployments if enabled. Cloudflare may still name provider settings “Production” and “Preview”; keep **one hosted release workflow** on `main`. No second website/backend is needed.

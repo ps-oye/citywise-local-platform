@@ -1,6 +1,6 @@
 # Security model and verification
 
-The latest [delivery update](delivery-update-report.md) and [release guide](delivery-release-guide.md) supersede earlier phase-specific notes about separate hosted environments and checkout fields. Migration 10 is pending locally; no hosted schema/configuration or business data was changed by this update.
+The latest [delivery update](delivery-update-report.md) and [release guide](delivery-release-guide.md) supersede earlier phase-specific notes about separate hosted environments and checkout fields. Migration 10 was subsequently applied with explicit approval on 17 November 2026; [backup/restore and post-application checks](migration-10-application-report.md) confirm preserved records, foreign keys, RLS, Storage policies and admin identity. No credentials, Auth/Cloudflare/DNS settings or frontend deployment were changed by that operation.
 
 ## Authorization
 

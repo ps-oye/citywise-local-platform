@@ -4,7 +4,7 @@ A lightweight local discovery and delivery-enquiry platform, starting in Rawatbh
 
 The application now uses **one existing hosted configuration**: this repository, `main`, Pages project `rawatbhata-one`, and the existing Supabase project. Legacy technical names and browser persistence keys are intentional. No additional hosted database, repository or staging website is required.
 
-The delivery/tracking update is implemented locally and requires the **reviewed migration 10 before release**. No hosted migration, seed, test checkout, credential change or deployment was performed. See [audit and plan](docs/delivery-update-plan.md), [release/backup/rollback instructions](docs/delivery-release-guide.md) and [results](docs/delivery-update-report.md). Earlier phase/rebrand reports are historical.
+The delivery/tracking update's **migration 10 was applied to the existing hosted database on 17 November 2026**, after explicit approval, a private backup and an actual isolated restore verification. Existing data/identities and security policies were preserved; no hosted test checkout, seed, credential change or frontend deployment was performed. See [application and verification results](docs/migration-10-application-report.md), [release/backup/rollback instructions](docs/delivery-release-guide.md) and [implementation history](docs/delivery-update-report.md). Earlier pending-migration reports are historical.
 
 ## Public experience
 
@@ -55,6 +55,8 @@ The two templates are public-build and trusted-runtime parts of the same applica
 
 Only the four listed `VITE_` names are allowed; they are public browser values. Never prefix secrets with `VITE_`. Public and server project origins must match. Restart the local server/rebuild after changing configuration.
 
+For Cloudflare Git builds, set `VITE_SITE_URL=https://shaharone.in` and `VITE_BRAND_NAME=ShaharOne` in the existing project's Production build variables; ignored local environment files are absent there. The deployment preflight reads runtime defaults from `wrangler.jsonc`, including `SITE_URL`, and rejects conflicting build/runtime origins. See [SITE_URL build troubleshooting](docs/site-url-build-fix.md) for the failed-build diagnosis and the separate pending migration requirement. An unsuccessful build does not replace the last successful website.
+
 `DEPLOYMENT_ENV`, separate production-project ref requirements, environment-specific templates and preview deployment creation have been retired. The Supabase project's historical `-dev` name does not require a new database. `npm run preview` is still a local built-site server, not hosted staging.
 
 ## Checkout and privacy
@@ -81,7 +83,7 @@ Public merchant pages also retain [compatible browsing before migration 10](docs
 
 ## Database changes
 
-Migrations 1-9 and existing data/seeds are unchanged. Pending [migration 10](supabase/migrations/20261116001000_delivery_tracking.sql) adds food capabilities, private delivery fingerprints, date/status indexes, delivery-aware RPCs and merchant tracking; it preserves rows and historical references. Its only `DROP` replaces a CHECK constraint to allow SO as well as RB references, without deleting data.
+Migrations 1-9 and existing seed files are unchanged. Applied [migration 10](supabase/migrations/20261116001000_delivery_tracking.sql) adds food capabilities, private delivery fingerprints, date/status indexes, delivery-aware RPCs and merchant tracking; it preserves rows and historical references. Its only `DROP` replaces a CHECK constraint to allow SO as well as RB references, without deleting data. The [application report](docs/migration-10-application-report.md) records the verified backup and before/after comparisons. Do not replay an applied migration.
 
 Review [backup, application and rollback instructions](docs/delivery-release-guide.md) before applying any hosted schema change. The [manual behavior rollback](supabase/rollback/20261116001000_restore_checkout.sql) retains every record and additive column/index. Do not reset a hosted database, replay demo seeds, edit applied migrations or restore an old backup over newer live data.
 

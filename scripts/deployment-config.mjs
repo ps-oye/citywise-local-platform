@@ -1,6 +1,7 @@
 import {readFile,readdir} from 'node:fs/promises';
 import {parseEnv} from 'node:util';
 import {loadEnv} from 'vite';
+import {resolve} from 'node:path';
 import {readEnvironment,parseOrigin} from '../src/config/environment.js';
 import {publicCatalog} from '../src/server/public-catalog.js';
 import {serverSupabase} from '../src/server/supabase.js';
@@ -17,17 +18,22 @@ export function validateDeployment(publicEnv,serverEnv,{project='rawatbhata-one'
   if(typeof serverEnv.CHECKOUT_HMAC_SECRET!=='string'||serverEnv.CHECKOUT_HMAC_SECRET.length<32)errors.push('CHECKOUT_HMAC_SECRET must contain at least 32 characters.');
   if(serverEnv.ANALYTICS_HMAC_SECRET&&(typeof serverEnv.ANALYTICS_HMAC_SECRET!=='string'||serverEnv.ANALYTICS_HMAC_SECRET.length<32))errors.push('ANALYTICS_HMAC_SECRET must contain at least 32 characters when supplied.');
   const site=parseOrigin(serverEnv.SITE_URL||'');
+  if(!config.siteUrl)errors.push('Set VITE_SITE_URL in Cloudflare Pages Production build variables to the public HTTPS origin (https://shaharone.in for this project).');
+  if(!site)errors.push('Set SITE_URL in wrangler.jsonc vars or the build environment to the same public HTTPS origin.');
   if(!site?.startsWith('https://')||site!==config.siteUrl)errors.push('SITE_URL must match the HTTPS VITE_SITE_URL used by the build.');
   const bindings={SUPABASE_URL:config.supabaseUrl||'',SUPABASE_PUBLISHABLE_KEY:config.supabaseKey,
     ...(serverEnv.SUPABASE_SECRET_KEY?{SUPABASE_SECRET_KEY:serverEnv.SUPABASE_SECRET_KEY}:{SUPABASE_SERVICE_ROLE_KEY:key}),CHECKOUT_HMAC_SECRET:serverEnv.CHECKOUT_HMAC_SECRET||''};
   if(serverEnv.ANALYTICS_HMAC_SECRET)bindings.ANALYTICS_HMAC_SECRET=serverEnv.ANALYTICS_HMAC_SECRET;
   return {errors,config,bindings,project,indexingEnabled:serverEnv.SITE_INDEXING_ENABLED==='true'};
 }
-export async function deploymentInputs(){
-  let privateVars={};try{privateVars=parseEnv(await readFile('.dev.vars','utf8'));}catch(error){if(error.code!=='ENOENT')throw new Error('Could not read server environment configuration.');}
-  const publicEnv=loadEnv('production',process.cwd(),'VITE_'),serverEnv={...privateVars,...process.env};
-  const wrangler=JSON.parse(await readFile('wrangler.jsonc','utf8'));
-  const selected=validateDeployment(publicEnv,serverEnv,{project:process.env.PAGES_PROJECT_NAME||wrangler.name});
+export async function deploymentInputs({directory=process.cwd(),environment=process.env,publicEnvironment}={}){
+  let privateVars={};try{privateVars=parseEnv(await readFile(resolve(directory,'.dev.vars'),'utf8'));}catch(error){if(error.code!=='ENOENT')throw new Error('Could not read server environment configuration.');}
+  const wrangler=JSON.parse(await readFile(resolve(directory,'wrangler.jsonc'),'utf8'));
+  // Pages builds have no ignored local files. Include committed runtime defaults
+  // without assuming they were exported into the build shell by Cloudflare.
+  const publicEnv=publicEnvironment??loadEnv('production',directory,'VITE_'),serverEnv={...wrangler.vars,...privateVars,...environment};
+  const selected=validateDeployment(publicEnv,serverEnv,{project:environment.PAGES_PROJECT_NAME||wrangler.name});
+  if(wrangler.vars?.SITE_URL&&parseOrigin(wrangler.vars.SITE_URL)!==parseOrigin(serverEnv.SITE_URL))selected.errors.push('SITE_URL in the build environment must also match the runtime SITE_URL in wrangler.jsonc vars.');
   if(selected.project!==wrangler.name)selected.errors.push('PAGES_PROJECT_NAME must match the reviewed name in wrangler.jsonc.');
   return {...selected,serverEnv,wrangler};
 }
